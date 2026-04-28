@@ -152,6 +152,7 @@ substitutions:
   heating_system_type_option_ufh: 'Underfloor Heating'
   heating_system_type_option_ufh_rad: 'Underfloor Heating + Radiators'
   heating_system_type_option_rad: 'Radiators'
+  heating_system_type_option_fc: 'Fan Coils'
   auto_adaptive_setpoint_bias: 'Auto-Adaptive: Setpoint Bias'
   temperature_feedback: 'Auto-Adaptive: Current Room Temperature Feedback'
   defrost_risk_handling_enabled: 'Auto-Adaptive: Defrost Mitigation'
