@@ -30,13 +30,20 @@ namespace esphome
                 p.max_delta_t         = 8.0f;
                 p.max_error_range     = 2.0f;
                 p.defrost_memory_ms   = 25 * 60 * 1000UL;
-            } else {
+            } else if (type_index <= 5) {
                 // Radiator
                 p.base_min_delta_t    = 4.0f;
                 p.min_delta_cold_limit = 6.0f;
                 p.max_delta_t         = 10.0f;
                 p.max_error_range     = 1.5f;
                 p.defrost_memory_ms   = 15 * 60 * 1000UL;
+            } else {
+                // Fan Coil
+                p.base_min_delta_t    = 2.5f;
+                p.min_delta_cold_limit = 4.0f;
+                p.max_delta_t         = 7.0f;
+                p.max_error_range     = 1.5f;
+                p.defrost_memory_ms   = 20 * 60 * 1000UL;
             }
             return p;
         }
