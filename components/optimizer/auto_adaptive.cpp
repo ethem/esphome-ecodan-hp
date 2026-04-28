@@ -203,6 +203,25 @@ namespace esphome
                     ESP_LOGD(OPTIMIZER_TAG, "Z%d Setpoint reached. Base delta T.", (zone_i + 1));
                 } else {
                     calculated_flow = actual_return_temp + target_delta;
+
+                    // Buffer-aware safety: when a buffer tank sits between HP and
+                    // heating circuit, the HP-side return (THW7) reflects buffer-bottom
+                    // temp, not room-circuit return. If actual ΔT (feed-return) already
+                    // meets/exceeds target ΔT, the buffer is delivering enough heat —
+                    // lowering flow setpoint below current feed stops the compressor.
+                    // See https://community.home-assistant.io/t/esphome-mitsubishi-ecodan-and-remote-thermostat-integrations/866580/156
+                    float actual_feed = this->get_feed_temp(
+                        (zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2);
+                    if (!std::isnan(actual_feed)
+                        && (actual_feed - actual_return_temp) > target_delta
+                        && calculated_flow < actual_feed) {
+                        ESP_LOGI(OPTIMIZER_TAG,
+                            "[Buffer] Z%d Short-cycle guard: ΔT actual %.2f > target %.2f — held %.2f → %.2f",
+                            (zone_i + 1),
+                            actual_feed - actual_return_temp, target_delta,
+                            calculated_flow, actual_feed);
+                        calculated_flow = actual_feed;
+                    }
                 }
                 calculated_flow = this->round_nearest(calculated_flow);
 
