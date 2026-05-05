@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh_rad: 'Gulvvarme + Radiatorer'
   heating_system_type_option_rad: 'Radiatorer'
   heating_system_type_option_fc: 'Viftekonvektorer'
+  heating_system_type_option_fc_buf: 'Viftekonvektorer m. buffer'
   auto_adaptive_setpoint_bias: 'Autoadaptiv: Settpunkt-bias'
   temperature_feedback: 'Autoadaptiv: Tilbakemelding Nåværende Romtemperatur'
   defrost_risk_handling_enabled: 'Autoadaptiv: Avrimingsreduksjon'

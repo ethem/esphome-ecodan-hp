@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh_rad: 'Fußbodenheizung + Heizkörper'
   heating_system_type_option_rad: 'Heizkörper'
   heating_system_type_option_fc: 'Gebläsekonvektoren'
+  heating_system_type_option_fc_buf: 'Gebläsekonvektoren m. Puffer'
   auto_adaptive_setpoint_bias: 'Auto-Adaptiv: Sollwert-Bias'
   temperature_feedback: 'Auto-Adaptiv: Rückmeldung Aktuelle Raumtemperatur'
   defrost_risk_handling_enabled: 'Auto-Adaptiv: Abtau-Reduzierung'

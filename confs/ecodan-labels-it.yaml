@@ -151,6 +151,7 @@ substitutions:
   heating_system_type_option_ufh_rad: 'Riscaldamento a Pavimento + Radiatori'
   heating_system_type_option_rad: 'Radiatori'
   heating_system_type_option_fc: 'Ventilconvettori'
+  heating_system_type_option_fc_buf: 'Ventilconvettori con buffer'
   auto_adaptive_setpoint_bias: 'Autoadattivo: Bias del Setpoint'
   temperature_feedback: 'Autoadattivo: Feedback Temperatura Ambiente Attuale'
   defrost_risk_handling_enabled: 'Autoadattivo: Mitigazione Sbrinamento'
