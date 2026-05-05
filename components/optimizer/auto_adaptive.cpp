@@ -39,8 +39,8 @@ namespace esphome
                 p.defrost_memory_ms   = 15 * 60 * 1000UL;
             } else {
                 // Fan Coil
-                p.base_min_delta_t    = 2.5f;
-                p.min_delta_cold_limit = 4.0f;
+                p.base_min_delta_t    = 4.0f;
+                p.min_delta_cold_limit = 5.5f;
                 p.max_delta_t         = 7.0f;
                 p.max_error_range     = 1.5f;
                 p.defrost_memory_ms   = 20 * 60 * 1000UL;
