@@ -22,17 +22,22 @@ namespace esphome
             float max_boost_limit;
             float step_size;
 
-            if (profile <= 1) {         // UFH
+            if (profile <= 1) {                         // UFH
                 initial_wait_ms   = 3600000;    // 60 min
                 step_interval_ms  = 1800000;    // 30 min
                 max_boost_limit   = 1.5f;
                 step_size         = 0.15f;
-            } else if (profile >= 4) {  // Radiator
+            } else if (profile == 6 || profile == 7) { // Fan Coil
+                initial_wait_ms   = 600000;     // 10 min
+                step_interval_ms  = 300000;     //  5 min
+                max_boost_limit   = 3.5f;
+                step_size         = 0.50f;
+            } else if (profile >= 4) {                 // Radiator
                 initial_wait_ms   = 1200000;    // 20 min
                 step_interval_ms  = 600000;     // 10 min
                 max_boost_limit   = 2.5f;
                 step_size         = 0.20f;
-            } else {                    // Hybrid
+            } else {                                   // Hybrid
                 initial_wait_ms   = 2700000;    // 45 min
                 step_interval_ms  = 1200000;    // 20 min
                 max_boost_limit   = 2.0f;
