@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh: 'Lattialämmitys'
   heating_system_type_option_ufh_rad: 'Lattialämmitys + patterit'
   heating_system_type_option_rad: 'Patterit'
+  heating_system_type_option_fc: 'Puhallinkonvektorit'
   auto_adaptive_setpoint_bias: 'Mukautuva ohjaus: Asetusarvon poikkeama'
   temperature_feedback: 'Mukautuva ohjaus: Huonelämpötilan palaute'
   defrost_risk_handling_enabled: 'Mukautuva ohjaus: Sulatuksen Vähentäminen'

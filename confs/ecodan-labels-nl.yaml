@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh: 'Vloerverwarming'
   heating_system_type_option_ufh_rad: 'Vloerverwarming + Radiatoren'
   heating_system_type_option_rad: 'Radiatoren'
+  heating_system_type_option_fc: 'Fan Coils'
   auto_adaptive_setpoint_bias: 'Auto-Adaptief: Setpoint Bias'
   temperature_feedback: 'Auto-Adaptief: Terugkoppeling Huidige Kamertemperatuur'
   defrost_risk_handling_enabled: 'Auto-Adaptief: Defrosts Beperken'
