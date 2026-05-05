@@ -27,7 +27,7 @@ namespace esphome
                 step_interval_ms  = 1800000;    // 30 min
                 max_boost_limit   = 1.5f;
                 step_size         = 0.15f;
-            } else if (profile == 6 || profile == 7) { // Fan Coil
+            } else if (profile == 6 || profile == 7 || profile == 8 || profile == 9) { // Fan Coil
                 initial_wait_ms   = 600000;     // 10 min
                 step_interval_ms  = 300000;     //  5 min
                 max_boost_limit   = 3.5f;
