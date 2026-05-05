@@ -152,6 +152,7 @@ substitutions:
   heating_system_type_option_ufh: 'Podlahové kúrenie'
   heating_system_type_option_ufh_rad: 'Podlahové kúrenie + radiátory'
   heating_system_type_option_rad: 'Radiátory'
+  heating_system_type_option_fc: 'Ventilátorové konvektory'
   auto_adaptive_setpoint_bias: 'Posun cieľovej hodnoty'
   temperature_feedback: 'Aktuálna teplota miestnosti'
   defrost_risk_handling_enabled: 'Auto-adaptívne: zmiernenie odmrazovania'

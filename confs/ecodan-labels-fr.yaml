@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh: 'Chauffage au Sol'
   heating_system_type_option_ufh_rad: 'Chauffage au Sol + Radiateurs'
   heating_system_type_option_rad: 'Radiateurs'
+  heating_system_type_option_fc: 'Ventilo-convecteurs'
   auto_adaptive_setpoint_bias: 'Auto-Adaptatif: Bias de Consigne'
   temperature_feedback: 'Auto-Adaptatif: Retour de Température Ambiante Actuelle'
   defrost_risk_handling_enabled: 'Auto-Adaptatif: Atténuation Dégivrage'

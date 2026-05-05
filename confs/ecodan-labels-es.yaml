@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh: 'Suelo Radiante'
   heating_system_type_option_ufh_rad: 'Suelo Radiante + Radiadores'
   heating_system_type_option_rad: 'Radiadores'
+  heating_system_type_option_fc: 'Fan Coils'
   auto_adaptive_setpoint_bias: 'Autoadaptativo: Bias de Consigna'
   temperature_feedback: 'Autoadaptativo: Feedback de Temperatura Ambiente Actual'
   defrost_risk_handling_enabled: 'Autoadaptativo: Mitigación de Desescarche'
