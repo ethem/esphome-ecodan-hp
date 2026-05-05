@@ -45,7 +45,7 @@ namespace esphome
                 // Each time we adjust for dhw, set the post dhw timer expiration
                 time_t current_timestamp = status.timestamp();
                 if (status.CompressorOn && current_timestamp > 0) {
-                    const uint32_t after_dhw_monitoring_duration_s = 5 * 60UL;
+                    const uint32_t after_dhw_monitoring_duration_s = 10 * 60UL;
                     this->dhw_post_run_expiration_ = (uint32_t)(current_timestamp + after_dhw_monitoring_duration_s);
                     ESP_LOGD(OPTIMIZER_TAG, "Setting monitor expiration to: %d", this->dhw_post_run_expiration_);
                 }
@@ -134,17 +134,22 @@ namespace esphome
             return false;
         }
 
-        float Optimizer::enforce_step_down(const ecodan::Status &status, float actual_flow_temp, float calculated_flow) 
+        float Optimizer::enforce_step_down(const ecodan::Status &status, float actual_flow_temp, float calculated_flow)
         {
             const float MAX_FEED_STEP_DOWN = 1.0f;
-            const float MAX_FEED_STEP_DOWN_ADJUSTMENT = 0.5f;
-            
+            const float MAX_FEED_STEP_DOWN_NORMAL = 0.5f;
+            const float MAX_FEED_STEP_DOWN_POST_DHW = 2.0f;
+
+            bool post_dhw = this->is_post_dhw_window(status);
+            float step = post_dhw ? MAX_FEED_STEP_DOWN_POST_DHW : MAX_FEED_STEP_DOWN_NORMAL;
+
             if ((actual_flow_temp - calculated_flow) > MAX_FEED_STEP_DOWN)
             {
-                ESP_LOGW(OPTIMIZER_TAG, "Flow adjust: %.2f°C to prevent compressor stop! (setpoint: %.2f°C is %.2f°C below actual feed temp)",
-                        actual_flow_temp - MAX_FEED_STEP_DOWN_ADJUSTMENT, calculated_flow, (actual_flow_temp - calculated_flow));
+                ESP_LOGW(OPTIMIZER_TAG, "Flow adjust: %.2f°C to prevent compressor stop! (setpoint: %.2f°C is %.2f°C below actual feed temp%s)",
+                        actual_flow_temp - step, calculated_flow, (actual_flow_temp - calculated_flow),
+                        post_dhw ? ", post-DHW fast ramp" : "");
 
-                return actual_flow_temp - MAX_FEED_STEP_DOWN_ADJUSTMENT;
+                return actual_flow_temp - step;
             }
             return calculated_flow;
         }
@@ -218,9 +223,22 @@ namespace esphome
                     this->dhw_old_z1_setpoint_, this->dhw_old_z2_setpoint_);
             }
 
-            if (new_mode == heating_mode && previous_mode != heating_mode && this->state_.auto_adaptive_control_enabled->state) {
-                ESP_LOGD(OPTIMIZER_TAG, "Operation Mode Changed to heating: %d -> %d", previous_mode, new_mode);
-                this->run_auto_adaptive_loop();
+            if (new_mode == heating_mode && previous_mode != heating_mode) {
+                // ALWAYS send immediate flow setpoint on DHW→Heating transition
+                // to prevent compressor stop (DHW Anti-0 fix in set_flow_target_temperature)
+                // This runs regardless of AA state — block-based heating also benefits.
+                float current_z1_setpoint = status.Zone1FlowTemperatureSetPoint;
+                if (current_z1_setpoint > 20.0f) {
+                    ESP_LOGD(OPTIMIZER_TAG, "Transition to heating: sending immediate setpoint %.1f°C", current_z1_setpoint);
+                    this->state_.ecodan_instance->set_flow_target_temperature(
+                        current_z1_setpoint, esphome::ecodan::Zone::ZONE_1);
+                }
+
+                // Only run AA loop if enabled
+                if (this->state_.auto_adaptive_control_enabled->state) {
+                    ESP_LOGD(OPTIMIZER_TAG, "Operation Mode Changed to heating: %d -> %d", previous_mode, new_mode);
+                    this->run_auto_adaptive_loop();
+                }
             }
         }
 
