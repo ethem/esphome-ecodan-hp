@@ -150,6 +150,7 @@ substitutions:
   heating_system_type_option_ufh_rad: 'Gulvvarme + Radiatorer'
   heating_system_type_option_rad: 'Radiatorer'
   heating_system_type_option_fc: 'Fan Coils'
+  heating_system_type_option_fc_buf: 'Fan Coils m. buffer'
   auto_adaptive_setpoint_bias: 'Auto-Adaptiv: Setpunkt Bias'
   temperature_feedback: 'Auto-Adaptiv: Tilbagemelding Nuværende Rumtemperatur'
   defrost_risk_handling_enabled: 'Auto-Adaptiv: Afrimningsreduktion'

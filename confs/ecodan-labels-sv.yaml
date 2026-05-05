@@ -151,6 +151,7 @@ substitutions:
   heating_system_type_option_ufh_rad: 'Golvvärme + Radiatorer'
   heating_system_type_option_rad: 'Radiatorer'
   heating_system_type_option_fc: 'Fläktkonvektorer'
+  heating_system_type_option_fc_buf: 'Fläktkonvektorer m. buffert'
   auto_adaptive_setpoint_bias: 'Autoadaptiv: Börvärdes-bias'
   temperature_feedback: 'Autoadaptiv: Återkoppling Aktuell Rumstemperatur'
   defrost_risk_handling_enabled: 'Autoadaptiv: Avfrostningsreducering'

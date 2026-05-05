@@ -282,6 +282,8 @@ select:
       - "${heating_system_type_option_rad} *"
       - "${heating_system_type_option_fc}"
       - "${heating_system_type_option_fc} *"
+      - "${heating_system_type_option_fc_buf}"
+      - "${heating_system_type_option_fc_buf} *"
     initial_option: "${heating_system_type_option_ufh}"
 
   - platform: template
