@@ -124,6 +124,12 @@ namespace esphome
 
         esphome::thermostat::ThermostatClimate *asgard_vt_z1;
         esphome::thermostat::ThermostatClimate *asgard_vt_z2;
+        esphome::thermostat::ThermostatClimate *asgard_vt_buffer{nullptr};
+
+        esphome::number::Number   *buffer_thermostat_hysteresis{nullptr};
+        esphome::number::Number   *thermostat_hysteresis_z1{nullptr};
+        esphome::number::Number   *thermostat_hysteresis_up_z1{nullptr};
+        esphome::binary_sensor::BinarySensor *secondary_pump_demand_output{nullptr};
 
         uint32_t &lockout_expiration_timestamp;
     };

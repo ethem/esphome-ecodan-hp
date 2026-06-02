@@ -60,6 +60,8 @@ struct DashboardSnapshot {
   // Float sensors
   float hp_feed_temp{NAN};
   float hp_return_temp{NAN};
+  float z1_feed_temp{NAN};
+  float z1_return_temp{NAN};
   float outside_temp{NAN};
   float liquid_pipe_temp{NAN};
   float condensing_temp{NAN};
@@ -100,6 +102,7 @@ struct DashboardSnapshot {
   NumData num_max_flow_temp_z2;
   NumData num_min_flow_temp_z2;
   NumData num_hysteresis_z1;
+  NumData num_hysteresis_up_z1;
   NumData num_hysteresis_z2;
   NumData pred_sc_time;
   NumData pred_sc_delta;
@@ -119,6 +122,10 @@ struct DashboardSnapshot {
   ClimData room_z2;
   ClimData flow_z1;
   ClimData flow_z2;
+  ClimData buf_thermostat;
+  bool     has_mixing_tank{false};
+  bool     secondary_pump_demand{false};
+  NumData  num_buffer_hysteresis;
 
   // Selects & modes
   float operation_mode{NAN};
@@ -184,6 +191,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   // Sensors
   void set_hp_feed_temp(sensor::Sensor *s)                    { hp_feed_temp_ = s; }
   void set_hp_return_temp(sensor::Sensor *s)                  { hp_return_temp_ = s; }
+  void set_z1_feed_temp(sensor::Sensor *s)                    { z1_feed_temp_ = s; }
+  void set_z1_return_temp(sensor::Sensor *s)                  { z1_return_temp_ = s; }
   void set_outside_temp(sensor::Sensor *s)                    { outside_temp_ = s; }
   void set_liquid_pipe_temp(sensor::Sensor *s)               { liquid_pipe_temp_ = s; }
   void set_condensing_temp(sensor::Sensor *s)                { condensing_temp_ = s; }
@@ -263,6 +272,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_num_max_flow_temp_z2(number::Number *n)            { num_max_flow_temp_z2_ = n; }
   void set_num_min_flow_temp_z2(number::Number *n)            { num_min_flow_temp_z2_ = n; }
   void set_num_hysteresis_z1(number::Number *n)               { num_hysteresis_z1_ = n; }
+  void set_num_hysteresis_up_z1(number::Number *n)            { num_hysteresis_up_z1_ = n; }
   void set_num_hysteresis_z2(number::Number *n)               { num_hysteresis_z2_ = n; }
   void set_pred_sc_time(number::Number *n)                    { pred_sc_time_ = n; }
   void set_pred_sc_delta(number::Number *n)                   { pred_sc_delta_ = n; }
@@ -282,6 +292,9 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   void set_heatpump_climate_z2(climate::Climate *c)           { heatpump_climate_z2_ = c; }
   void set_flow_climate_z1(climate::Climate *c)               { flow_climate_z1_ = c; }
   void set_flow_climate_z2(climate::Climate *c)               { flow_climate_z2_ = c; }
+  void set_buffer_thermostat_climate(climate::Climate *c)     { buffer_thermostat_climate_ = c; }
+  void set_secondary_pump_demand(binary_sensor::BinarySensor *b) { secondary_pump_demand_bs_ = b; }
+  void set_num_buffer_hysteresis(number::Number *n)           { num_buffer_hysteresis_ = n; }
 
   // Globals
   void set_ui_use_room_z1(esphome::globals::RestoringGlobalsComponent<bool> *g) { ui_use_room_z1_ = g; }
@@ -384,6 +397,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   // Sensors
   sensor::Sensor *hp_feed_temp_{nullptr};
   sensor::Sensor *hp_return_temp_{nullptr};
+  sensor::Sensor *z1_feed_temp_{nullptr};
+  sensor::Sensor *z1_return_temp_{nullptr};
   sensor::Sensor *outside_temp_{nullptr};
   sensor::Sensor *liquid_pipe_temp_{nullptr};
   sensor::Sensor *condensing_temp_{nullptr};
@@ -456,6 +471,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   number::Number *num_max_flow_temp_z2_{nullptr};
   number::Number *num_min_flow_temp_z2_{nullptr};
   number::Number *num_hysteresis_z1_{nullptr};
+  number::Number *num_hysteresis_up_z1_{nullptr};
   number::Number *num_hysteresis_z2_{nullptr};
   number::Number *pred_sc_time_{nullptr};
   number::Number *pred_sc_delta_{nullptr};
@@ -472,6 +488,9 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   climate::Climate *heatpump_climate_z2_{nullptr};
   climate::Climate *flow_climate_z1_{nullptr};
   climate::Climate *flow_climate_z2_{nullptr};
+  climate::Climate *buffer_thermostat_climate_{nullptr};
+  binary_sensor::BinarySensor *secondary_pump_demand_bs_{nullptr};
+  number::Number *num_buffer_hysteresis_{nullptr};
 
   esphome::globals::RestoringGlobalsComponent<bool> *ui_use_room_z1_{nullptr};
   esphome::globals::RestoringGlobalsComponent<bool> *ui_use_room_z2_{nullptr};

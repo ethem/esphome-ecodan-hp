@@ -13,6 +13,7 @@ AUTO_LOAD = ["ecodan", "thermostat"]
 ecodan_ns = cg.esphome_ns.namespace("ecodan")
 EcodanClimate = ecodan_ns.class_("EcodanClimate", climate.Climate, cg.Component)
 EcodanVirtualThermostat = ecodan_ns.class_('EcodanVirtualThermostat', thermostat_cli.ThermostatClimate)
+EcodanBufferThermostat = ecodan_ns.class_('EcodanBufferThermostat', thermostat_cli.ThermostatClimate)
 CONF_VARIANT = "variant"
 
 base_schema = thermostat_cli.CONFIG_SCHEMA.validators[0]
@@ -22,6 +23,11 @@ extended_schema = base_schema.extend({
 })
 extra_validators = thermostat_cli.CONFIG_SCHEMA.validators[1:]
 VIRTUAL_SCHEMA = cv.All(extended_schema, *extra_validators)
+
+buffer_schema = base_schema.extend({
+    cv.GenerateID(): cv.declare_id(EcodanBufferThermostat),
+})
+BUFFER_THERMOSTAT_SCHEMA = cv.All(buffer_schema, *extra_validators)
 
 HARDWARE_SCHEMA = cv.Schema(
     {
@@ -79,13 +85,14 @@ HARDWARE_SCHEMA = cv.Schema(
 CONFIG_SCHEMA = cv.typed_schema({
     "hardware": HARDWARE_SCHEMA,
     "virtual": VIRTUAL_SCHEMA,
+    "buffer_thermostat": BUFFER_THERMOSTAT_SCHEMA,
 }, key=CONF_VARIANT, default_type="hardware")
 
 
 async def to_code(config):
-    if config[CONF_VARIANT] == "virtual":
-        # use parent code gen
-        await thermostat_cli.to_code(config)        
+    if config[CONF_VARIANT] in ("virtual", "buffer_thermostat"):
+        # use parent thermostat code gen
+        await thermostat_cli.to_code(config)
     else:
         #hp = await cg.get_variable(config[CONF_ECODAN_ID])
         for key, conf in config.items():

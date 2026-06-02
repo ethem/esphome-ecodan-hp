@@ -419,6 +419,7 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "minimum_compressor_on_time")   { doNumber(minimum_compressor_on_time_); return; }
 
   if (key == "thermostat_hysteresis_z1")    { doNumber(num_hysteresis_z1_);    return; }
+  if (key == "thermostat_hysteresis_up_z1") { doNumber(num_hysteresis_up_z1_); return; }
   if (key == "thermostat_hysteresis_z2")    { doNumber(num_hysteresis_z2_);    return; }
   if (key == "raw_heat_produced") { doNumber(num_raw_heat_produced_); return; }
   if (key == "raw_elec_consumed") { doNumber(num_raw_elec_consumed_); return; }
@@ -461,9 +462,25 @@ void EcodanDashboard::dispatch_set_(const std::string &key, const std::string &s
   if (key == "heatpump_climate_z1_setpoint") { doClimate(heatpump_climate_z1_, "Room Z1"); return; }
   if (key == "heatpump_climate_z2_setpoint") { doClimate(heatpump_climate_z2_, "Room Z2"); return; }
 
-  if (key == "flow_climate_z1_setpoint")     { doClimate(flow_climate_z1_, "Flow Z1"); return; }
-  if (key == "flow_climate_z2_setpoint")     { doClimate(flow_climate_z2_, "Flow Z2"); return; }
-  
+  if (key == "flow_climate_z1_setpoint")        { doClimate(flow_climate_z1_, "Flow Z1"); return; }
+  if (key == "flow_climate_z2_setpoint")        { doClimate(flow_climate_z2_, "Flow Z2"); return; }
+  if (key == "buffer_thermostat_setpoint")      { doClimate(buffer_thermostat_climate_, "Buffer"); return; }
+
+  if (key == "buffer_thermostat_mode" && buffer_thermostat_climate_ && is_string) {
+    auto call = buffer_thermostat_climate_->make_call();
+    call.set_mode(sval == "heat" ? climate::CLIMATE_MODE_HEAT : climate::CLIMATE_MODE_OFF);
+    call.perform();
+    ESP_LOGI(TAG, "Buffer thermostat mode set to %s", sval.c_str());
+    return;
+  }
+
+  if (key == "buffer_hysteresis" && num_buffer_hysteresis_) {
+    auto call = num_buffer_hysteresis_->make_call();
+    call.set_value(fval);
+    call.perform();
+    return;
+  }
+
   if (key == "virtual_climate_z1_mode" || key == "virtual_climate_z2_mode") {
     climate::Climate *c = (key == "virtual_climate_z1_mode") ? virtual_climate_z1_ : virtual_climate_z2_;
     if (c && is_string) {
@@ -563,6 +580,8 @@ void EcodanDashboard::update_snapshot_() {
   // Populate Floats
   current_snapshot_.hp_feed_temp = get_f(hp_feed_temp_);
   current_snapshot_.hp_return_temp = get_f(hp_return_temp_);
+  current_snapshot_.z1_feed_temp = get_f(z1_feed_temp_);
+  current_snapshot_.z1_return_temp = get_f(z1_return_temp_);
   current_snapshot_.outside_temp = get_f(outside_temp_);
   current_snapshot_.liquid_pipe_temp = get_f(liquid_pipe_temp_);
   current_snapshot_.condensing_temp = get_f(condensing_temp_);
@@ -601,6 +620,7 @@ void EcodanDashboard::update_snapshot_() {
   get_n(num_max_flow_temp_z2_, current_snapshot_.num_max_flow_temp_z2);
   get_n(num_min_flow_temp_z2_, current_snapshot_.num_min_flow_temp_z2);
   get_n(num_hysteresis_z1_, current_snapshot_.num_hysteresis_z1);
+  get_n(num_hysteresis_up_z1_, current_snapshot_.num_hysteresis_up_z1);
   get_n(num_hysteresis_z2_, current_snapshot_.num_hysteresis_z2);
   get_n(pred_sc_time_, current_snapshot_.pred_sc_time);
   get_n(pred_sc_delta_, current_snapshot_.pred_sc_delta);
@@ -652,6 +672,10 @@ void EcodanDashboard::update_snapshot_() {
   get_c(heatpump_climate_z2_, current_snapshot_.room_z2);
   get_c(flow_climate_z1_, current_snapshot_.flow_z1);
   get_c(flow_climate_z2_, current_snapshot_.flow_z2);
+  get_c(buffer_thermostat_climate_, current_snapshot_.buf_thermostat);
+  current_snapshot_.has_mixing_tank       = (buffer_thermostat_climate_ != nullptr);
+  current_snapshot_.secondary_pump_demand = get_b(secondary_pump_demand_bs_);
+  get_n(num_buffer_hysteresis_, current_snapshot_.num_buffer_hysteresis);
 
   // Populate Selects & Modes
   current_snapshot_.operation_mode = get_f(operation_mode_);
@@ -778,6 +802,8 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   // --- HP sensor floats ---
   p_f("hp_feed_temp",                  snap.hp_feed_temp);
   p_f("hp_return_temp",                snap.hp_return_temp);
+  p_f("z1_feed_temp",                  snap.z1_feed_temp);
+  p_f("z1_return_temp",               snap.z1_return_temp);
   p_f("outside_temp",                  snap.outside_temp);
   p_f("liquid_pipe_temp",              snap.liquid_pipe_temp);
   p_f("condensing_temp",               snap.condensing_temp);
@@ -823,6 +849,8 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   p_lim("min_flow_z2_lim",             snap.num_min_flow_temp_z2);
   p_n("thermostat_hysteresis_z1",      snap.num_hysteresis_z1.val);
   p_lim("hysteresis_z1_lim",           snap.num_hysteresis_z1);
+  p_n("thermostat_hysteresis_up_z1",   snap.num_hysteresis_up_z1.val);
+  p_lim("hysteresis_up_z1_lim",        snap.num_hysteresis_up_z1);
   p_n("thermostat_hysteresis_z2",      snap.num_hysteresis_z2.val);
   p_lim("hysteresis_z2_lim",           snap.num_hysteresis_z2);
   p_n("pred_sc_time",                  snap.pred_sc_time.val);
@@ -844,6 +872,14 @@ void EcodanDashboard::handle_state_(AsyncWebServerRequest *request) {
   p_act("room_z2_action", snap.room_z2.action);
   p_n("flow_z1_current", snap.flow_z1.curr);  p_n("flow_z1_setpoint", snap.flow_z1.tar);
   p_n("flow_z2_current", snap.flow_z2.curr);  p_n("flow_z2_setpoint", snap.flow_z2.tar);
+  p_b("has_mixing_tank",       snap.has_mixing_tank);
+  p_b("secondary_pump_demand", snap.secondary_pump_demand);
+  p_n("buf_current_temp",  snap.buf_thermostat.curr);
+  p_n("buf_setpoint",      snap.buf_thermostat.tar);
+  p_act("buf_action",      snap.buf_thermostat.action);
+  p_mod("buf_mode",        snap.buf_thermostat.mode);
+  p_n("buf_hysteresis",    snap.num_buffer_hysteresis.val);
+  p_lim("buf_hysteresis_lim", snap.num_buffer_hysteresis);
   if (!flush()) { httpd_resp_send_chunk(req, nullptr, 0); return; }
 
   // --- Binary / switch status ---

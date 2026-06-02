@@ -312,6 +312,30 @@ header {
     <span class="badge-value" id="b-dt">—</span>
     </div>
 
+    <div class="badge" id="b-z1-feed-badge" style="display:none">
+      <span class="badge-label">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+        Z1 Flow
+      </span>
+      <span class="badge-value hot" id="b-z1-feed">—</span>
+    </div>
+
+    <div class="badge" id="b-z1-return-badge" style="display:none">
+      <span class="badge-label">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+        Z1 Return
+      </span>
+      <span class="badge-value" id="b-z1-return">—</span>
+    </div>
+
+    <div class="badge" id="b-z1-dt-badge" style="display:none">
+    <span class="badge-label">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18 L16 6 L20 6 L12 2 L4 6 L8 6 L8 18 Z" fill="currentColor"/></svg>
+      Z1 ΔT
+    </span>
+    <span class="badge-value" id="b-z1-dt">—</span>
+    </div>
+
     <div class="badge">
       <span class="badge-label">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"></path><line x1="12" y1="2" x2="12" y2="9"></line><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"></line><line x1="1" y1="18" x2="3" y2="18"></line><line x1="21" y1="18" x2="23" y2="18"></line><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"></line><line x1="23" y1="22" x2="1" y2="22"></line><polyline points="8 22 8 18 16 18 16 22"></polyline></svg>
@@ -585,7 +609,8 @@ header {
           <div><div class="stat-label">Current</div><div class="big-temp" style="font-size:32px" id="z1-current">—<span>°C</span></div></div>
           <div style="flex:1;"><div class="stat-label">Setpoint</div><div class="stepper"><button class="step-btn" onclick="step('z1-sp', -0.1)">−</button><div class="step-val" style="font-size:18px; min-width:52px" id="z1-sp-val">—</div><button class="step-btn" onclick="step('z1-sp', +0.1)">+</button></div></div>
         </div>
-        <div class="ctrl-row"><span class="ctrl-label">Hysteresis &nbsp;<span id="z1-hyst-val" style="color:var(--accent);font-family:var(--mono)">—</span></span><input type="range" class="ctrl-range" id="z1-hyst" min="0.1" max="3.0" step="0.1" style="max-width:140px" oninput="hystInput('z1')"></div>
+        <div class="ctrl-row"><span class="ctrl-label">Hys ↓ (ON) &nbsp;<span id="z1-hyst-val" style="color:var(--accent);font-family:var(--mono)">—</span></span><input type="range" class="ctrl-range" id="z1-hyst" min="0.1" max="2.0" step="0.1" style="max-width:140px" oninput="hystInput('z1')"></div>
+        <div class="ctrl-row"><span class="ctrl-label">Hys ↑ (OFF) &nbsp;<span id="z1-hyst-up-val" style="color:var(--accent);font-family:var(--mono)">—</span></span><input type="range" class="ctrl-range" id="z1-hyst-up" min="0.1" max="2.0" step="0.1" style="max-width:140px" oninput="hystInputUp('z1')"></div>
         <button class="send-btn" id="btn-z1" onclick="sendZone('z1', this)" style="margin-bottom:0">Apply Virtual Thermostat Z1</button>
       </div>
 
@@ -598,6 +623,20 @@ header {
           <div style="flex:1;"><div class="stat-label">Setpoint</div><div class="stepper"><button class="step-btn" onclick="step('room-z1-sp', -0.5)">−</button><div class="step-val" style="font-size:18px; min-width:52px" id="room-z1-sp-val">—</div><button class="step-btn" onclick="step('room-z1-sp', +0.5)">+</button></div></div>
         </div>
         <button class="send-btn" id="btn-room-z1" onclick="sendRoom('z1', this)" style="margin-bottom:0;">Apply Room Thermostat Z1</button>
+      </div>
+
+      <div id="buf-section" style="display:none; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 15px; background: var(--bg2);">
+        <div class="sub-label" style="margin-top: 0; border: none; padding-bottom: 10px;">
+          <span id="dot-buf" class="status-dot"></span>Buffer Thermostat
+        </div>
+        <div class="ctrl-row"><span class="ctrl-label">Mode</span><select class="ctrl-select" id="sel-buf-mode" onchange="sendSelect('buffer_thermostat_mode', this)"><option value="heat">Heat</option><option value="off">Off</option></select></div>
+        <div style="display:flex; align-items:flex-end; gap:14px; margin-bottom:10px;">
+          <div><div class="stat-label">Current</div><div class="big-temp" style="font-size:32px" id="buf-current">—<span>°C</span></div></div>
+          <div style="flex:1;"><div class="stat-label">Setpoint</div><div class="stepper"><button class="step-btn" onclick="step('buf-sp', -0.5)">−</button><div class="step-val" style="font-size:18px; min-width:52px" id="buf-sp-val">—</div><button class="step-btn" onclick="step('buf-sp', +0.5)">+</button></div></div>
+        </div>
+        <div class="ctrl-row"><span class="ctrl-label">Hysteresis &nbsp;<span id="buf-hyst-val" style="color:var(--accent);font-family:var(--mono)">—</span></span><input type="range" class="ctrl-range" id="buf-hyst" min="1.0" max="15.0" step="0.5" style="max-width:140px" oninput="hystInput('buf')"></div>
+        <div class="ctrl-row" style="border-bottom: none;"><span class="ctrl-label">Secondary Pump Demand</span><span id="secondary-pump-demand-dot" class="status-dot"></span></div>
+        <button class="send-btn" id="btn-buf" onclick="sendBuffer(this)" style="margin-bottom:0">Apply Buffer Thermostat</button>
       </div>
     </div>
 
@@ -1213,9 +1252,10 @@ const pending = {
   'aa-max-z2': null, 'aa-min-z2': null,
   'psc-win': null, 'psc-delta': null, 
   'dhw-sp': null, 
-  'z1-sp': null, 'z1-hyst': null, 'room-z1-sp': null,
+  'z1-sp': null, 'z1-hyst': null, 'z1-hyst-up': null, 'room-z1-sp': null,
   'z2-sp': null, 'z2-hyst': null, 'room-z2-sp': null,
   'flow-z1-sp': null, 'flow-z2-sp': null,
+  'buf-sp': null, 'buf-hyst': null,
   'raw-heat': null, 'raw-elec': null, 'raw-run': null,
   'raw-out': null, 'raw-room': null, 'raw-delta': null, 'raw-solar-factor': null,
   'batt-soc': null, 'batt-max-dis': null,
@@ -1253,6 +1293,7 @@ const LIMITS = {
   'room-z2-sp': { min: 10, max: 30, step: 0.5 },
   'flow-z1-sp': { min: 10, max: 60, step: 0.1 },
   'flow-z2-sp': { min: 10, max: 60, step: 0.1 },
+  'buf-sp':     { min: 20, max: 60, step: 0.5 },
   'raw-heat': { min: 0.0, max: 200.0, step: 0.1 },
   'raw-elec': { min: 0.0, max: 100.0, step: 0.1 },
   'raw-run': { min: 0.0, max: 24.0, step: 0.1 },
@@ -1284,6 +1325,7 @@ const STEP_EL = {
   'z1-sp': 'z1-sp-val', 'room-z1-sp': 'room-z1-sp-val',
   'z2-sp': 'z2-sp-val', 'room-z2-sp': 'room-z2-sp-val',
   'flow-z1-sp': 'flow-z1-sp-val', 'flow-z2-sp': 'flow-z2-sp-val',
+  'buf-sp': 'buf-sp-val',
   'raw-heat': 'raw-heat-val', 'raw-elec': 'raw-elec-val', 'raw-run': 'raw-run-val',
   'raw-out': 'raw-out-val', 'raw-room': 'raw-room-val', 'raw-delta': 'raw-delta-val',
   'raw-hl-tm': 'raw-hl-tm-val','raw-solar-factor': 'raw-solar-factor-val',
@@ -2936,6 +2978,29 @@ function seedHyst(zone, val) {
   }
 }
 
+function seedHystUp(zone, val) {
+  const key = zone + '-hyst-up';
+  if (val != null) {
+    const newVal = parseFloat(val);
+    serverState[key] = newVal;
+    const el = document.getElementById(zone + '-hyst-up');
+    if (el && document.activeElement === el) return;
+    if (lastEdit[key] && (Date.now() - lastEdit[key] < 4000)) return;
+    if (pending[key] !== newVal) {
+      pending[key] = newVal;
+      if (el) el.value = newVal;
+      setText(zone + '-hyst-up-val', newVal.toFixed(1));
+    }
+  }
+}
+
+function hystInputUp(zone) {
+  const key = zone + '-hyst-up';
+  lastEdit[key] = Date.now();
+  pending[key] = parseFloat(document.getElementById(zone + '-hyst-up').value);
+  setText(zone + '-hyst-up-val', pending[key].toFixed(1));
+}
+
 function refreshStepVal(key) {
   const el = document.getElementById(STEP_EL[key]);
   if (el && pending[key] != null) {
@@ -3046,6 +3111,9 @@ function toggleCoolingUI() {
 
 function render(d) {
   const isZ2 = (d.zone2_enabled !== undefined) ? d.zone2_enabled : true;
+  const hasBuf = (d.has_mixing_tank !== undefined) ? d.has_mixing_tank : false;
+  const bufSection = document.getElementById('buf-section');
+  if (bufSection) bufSection.style.display = hasBuf ? 'block' : 'none';
 
   if (d.ui_use_room_z1 !== undefined) {
     const cbZ1 = document.getElementById('ui-room-z1');
@@ -3127,6 +3195,20 @@ function render(d) {
 
   setText('b-feed',    fmt1(d.hp_feed_temp) + '°');
   setText('b-return',  fmt1(d.hp_return_temp) + '°');
+  const hasBufBadge = !!d.has_mixing_tank;
+  const z1FeedBadge = document.getElementById('b-z1-feed-badge');
+  const z1RetBadge  = document.getElementById('b-z1-return-badge');
+  const z1DtBadge   = document.getElementById('b-z1-dt-badge');
+  if (z1FeedBadge) z1FeedBadge.style.display = hasBufBadge ? '' : 'none';
+  if (z1RetBadge)  z1RetBadge.style.display  = hasBufBadge ? '' : 'none';
+  if (z1DtBadge)   z1DtBadge.style.display   = hasBufBadge ? '' : 'none';
+  if (hasBufBadge) {
+    setText('b-z1-feed',   fmt1(d.z1_feed_temp) + '°');
+    setText('b-z1-return', fmt1(d.z1_return_temp) + '°');
+    if (d.z1_feed_temp != null && d.z1_return_temp != null)
+      setText('b-z1-dt', Math.abs(d.z1_feed_temp - d.z1_return_temp).toFixed(1) + '°');
+    else setText('b-z1-dt', '—');
+  }
   setText('b-outside', fmt1(d.outside_temp) + '°');
   setText('b-freq',    (d.compressor_frequency != null ? Math.round(d.compressor_frequency) : '—') + 'Hz');
   setText('b-flowrate',fmt1(d.flow_rate) + 'L');
@@ -3161,6 +3243,7 @@ function render(d) {
   setText('z1-current', fmt1(d.z1_current_temp));
   seedPending('z1-sp', d.z1_setpoint);
   seedHyst('z1', d.thermostat_hysteresis_z1);
+  seedHystUp('z1', d.thermostat_hysteresis_up_z1);
   if (d.z1_mode) document.getElementById('sel-z1-vmode').value = d.z1_mode;
 
   setText('z2-current', fmt1(d.z2_current_temp));
@@ -3179,6 +3262,22 @@ function render(d) {
 
   setText('flow-z2-current', fmt1(d.flow_z2_current));
   seedPending('flow-z2-sp', d.flow_z2_setpoint);
+
+  if (d.has_mixing_tank) {
+    setText('buf-current', fmt1(d.buf_current_temp));
+    seedPending('buf-sp', d.buf_setpoint);
+    seedHyst('buf', d.buf_hysteresis);
+    const selBufMode = document.getElementById('sel-buf-mode');
+    if (selBufMode && d.buf_mode) selBufMode.value = d.buf_mode;
+    if (d.buf_hysteresis_lim) {
+      const hEl = document.getElementById('buf-hyst');
+      if (hEl) { hEl.min = d.buf_hysteresis_lim.min; hEl.max = d.buf_hysteresis_lim.max; hEl.step = d.buf_hysteresis_lim.step; }
+    }
+    const dotBuf = document.getElementById('dot-buf');
+    if (dotBuf) dotBuf.className = 'status-dot ' + (d.buf_action === 'heating' ? 'active' : '');
+    const pumpDot = document.getElementById('secondary-pump-demand-dot');
+    if (pumpDot) pumpDot.className = 'status-dot ' + (d.secondary_pump_demand ? 'active' : '');
+  }
 
   seedPending('aa-bias', d.auto_adaptive_setpoint_bias);
   seedPending('aa-max',  d.maximum_heating_flow_temp);
@@ -3480,8 +3579,9 @@ async function sendZone(zone, btn) {
   btn.classList.add('sending');
   let c = 0;
   try {
-    if (hasChanged(zone + '-sp'))   { await apiPost({ key: 'virtual_climate_' + zone + '_setpoint', value: pending[zone+'-sp'] }); c++; }
-    if (hasChanged(zone + '-hyst')) { await apiPost({ key: 'thermostat_hysteresis_' + zone,         value: pending[zone+'-hyst'] }); c++; }
+    if (hasChanged(zone + '-sp'))      { await apiPost({ key: 'virtual_climate_' + zone + '_setpoint',   value: pending[zone+'-sp'] }); c++; }
+    if (hasChanged(zone + '-hyst'))    { await apiPost({ key: 'thermostat_hysteresis_' + zone,           value: pending[zone+'-hyst'] }); c++; }
+    if (hasChanged(zone + '-hyst-up')) { await apiPost({ key: 'thermostat_hysteresis_up_' + zone,        value: pending[zone+'-hyst-up'] }); c++; }
     showToast(c > 0 ? '✓ Zone ' + zone.toUpperCase() + ' updated' : 'No changes');
   } catch(e) { showToast('✗ ' + e.message, true); }
   btn.classList.remove('sending');
@@ -3509,8 +3609,19 @@ async function sendFlow(zone, btn) {
   btn.classList.remove('sending');
 }
 
+async function sendBuffer(btn) {
+  btn.classList.add('sending');
+  let c = 0;
+  try {
+    if (hasChanged('buf-sp'))   { await apiPost({ key: 'buffer_thermostat_setpoint', value: pending['buf-sp'] }); c++; }
+    if (hasChanged('buf-hyst')) { await apiPost({ key: 'buffer_hysteresis',           value: pending['buf-hyst'] }); c++; }
+    showToast(c > 0 ? '✓ Buffer Thermostat updated' : 'No changes');
+  } catch(e) { showToast('✗ ' + e.message, true); }
+  btn.classList.remove('sending');
+}
+
 async function sendVMode(zone, el) {
-  try { 
+  try {
     await apiPost({ key: 'virtual_climate_' + zone + '_mode', value: el.value }); 
     showToast('✓ Zone ' + zone.toUpperCase() + ' Mode: ' + el.value); 
   } 

@@ -79,7 +79,11 @@ namespace esphome
                                 // NO SIGNIFICANT SOLAR: Learn pure thermal time constant (Tau).
                                 // Happens at night or during heavily overcast days.
                                 // Strictly require the room to have cooled down to calculate physics.
-                                if (t_hours >= 3.0f && delta_cool > 0.15f && delta_cool < 5.0f) {
+                                // Guard: secondary circuit demand must be off — if demand is active,
+                                // residual buffer heat flows to rooms and inflates Tau.
+                                bool sec_demand_off = (this->state_.secondary_pump_demand_output == nullptr)
+                                                      || !this->state_.secondary_pump_demand_output->state;
+                                if (sec_demand_off && t_hours >= 3.0f && delta_cool > 0.15f && delta_cool < 5.0f) {
                                     float tau = (delta_T_avg * t_hours) / delta_cool;
                                     
                                     if (tau > 5.0f && tau < 300.0f) {

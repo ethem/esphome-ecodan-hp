@@ -12,6 +12,12 @@ namespace esphome
   namespace optimizer
   {
 
+    enum class ThermostatControlMode : uint8_t {
+        ROOM        = 0,
+        MIXING_TANK = 1,
+        BOTH        = 2,
+    };
+
     class Optimizer
     {
     private:
@@ -170,6 +176,10 @@ namespace esphome
 
       // ── solver.cpp ────────────────────────────────────────────────────
       void apply_solver_soft_stop(bool should_stop);
+
+      // ── auto_adaptive.cpp (buffer thermostat) ─────────────────────────
+      void update_secondary_pump_demand(const ecodan::Status &status, bool room_demand, bool room_sat);
+      void run_buffer_thermostat_(const ecodan::Status &status);
 
       // ── events.cpp ────────────────────────────────────────────────────
       void on_feed_temp_change(float actual_flow_temp, OptimizerZone zone);

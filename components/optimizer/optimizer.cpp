@@ -74,6 +74,34 @@ namespace esphome
                     });
                 });
             }
+
+            if (this->state_.asgard_vt_z1 != nullptr) {
+                this->state_.asgard_vt_z1->add_on_state_callback([this](esphome::climate::Climate &) {
+                    auto &status = this->state_.ecodan_instance->get_status();
+                    float room_temp   = this->get_room_current_temp(OptimizerZone::ZONE_1);
+                    float room_target = this->get_room_target_temp(OptimizerZone::ZONE_1);
+                    float hys_down = (state_.thermostat_hysteresis_z1 != nullptr &&
+                                      !std::isnan(state_.thermostat_hysteresis_z1->state))
+                                     ? state_.thermostat_hysteresis_z1->state : 0.5f;
+                    float hys_up   = (state_.thermostat_hysteresis_up_z1 != nullptr &&
+                                      !std::isnan(state_.thermostat_hysteresis_up_z1->state))
+                                     ? state_.thermostat_hysteresis_up_z1->state : 0.3f;
+                    bool room_demand  = !std::isnan(room_temp) && room_temp < (room_target - hys_down);
+                    bool room_sat     = !std::isnan(room_temp) && room_temp > (room_target + hys_up);
+                    this->update_secondary_pump_demand(status, room_demand, room_sat);
+                });
+            }
+
+            if (this->state_.asgard_vt_buffer != nullptr) {
+                this->state_.asgard_vt_buffer->add_on_state_callback([this](esphome::climate::Climate &) {
+                    auto &status = this->state_.ecodan_instance->get_status();
+                    bool buffer_heat = (state_.asgard_vt_buffer->mode == esphome::climate::CLIMATE_MODE_HEAT);
+                    bool solver_enabled = this->solver_enabled();
+                    if (!solver_enabled && buffer_heat) {
+                        this->run_buffer_thermostat_(status);
+                    }
+                });
+            }
         }
 
     } // namespace optimizer

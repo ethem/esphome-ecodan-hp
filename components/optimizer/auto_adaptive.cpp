@@ -513,32 +513,56 @@ namespace esphome
 
             bool aa_enabled = this->aa_enabled();
             bool solver_enabled = this->solver_enabled();
+            bool buffer_heat = (state_.asgard_vt_buffer != nullptr) &&
+                               (state_.asgard_vt_buffer->mode == esphome::climate::CLIMATE_MODE_HEAT);
+            bool buffer_thermostat_active = !solver_enabled && buffer_heat;
             auto *override_z1 = this->state_.sw_odin_override_z1;
             auto *override_z2 = this->state_.sw_odin_override_z2;
 
-            // If the user disables Auto Adaptive or the Solver, we must ensure the hardware relays are released.
-            if (!aa_enabled || !solver_enabled) {
+            // Override switch: ON when ODIN or buffer thermostat controls relay, OFF otherwise.
+            bool relay_by_firmware = solver_enabled || buffer_thermostat_active;
+            if (!relay_by_firmware) {
                 bool z1_locked = override_z1 != nullptr && override_z1->state;
                 bool z2_locked = override_z2 != nullptr && override_z2->state;
-                
+
                 if (z1_locked || z2_locked || this->solver_stop_active_) {
-                    ESP_LOGI(OPTIMIZER_TAG, "Solver/AA disabled, but override switches are active. Forcing release.");
+                    ESP_LOGI(OPTIMIZER_TAG, "Solver/AA/BufferThermostat disabled, releasing override switches.");
                     if (override_z1 != nullptr && override_z1->state) override_z1->turn_off();
                     if (override_z2 != nullptr && override_z2->state) override_z2->turn_off();
                 }
-            }
-            else {
-                // aa and solver enabled, ensure that override is on
+            } else {
                 if (override_z1 != nullptr && !override_z1->state) override_z1->turn_on();
                 if (override_z2 != nullptr && !override_z2->state) override_z2->turn_on();
             }
+
+            // ── Section 1: always runs, independent of aa_enabled and DHW ──
+            auto &status = this->state_.ecodan_instance->get_status();
+
+            // Secondary pump: hysteresis band, temperature-based and mode-independent
+            {
+                float room_temp   = this->get_room_current_temp(OptimizerZone::ZONE_1);
+                float room_target = this->get_room_target_temp(OptimizerZone::ZONE_1);
+                float hys_down = (state_.thermostat_hysteresis_z1 != nullptr
+                                  && !std::isnan(state_.thermostat_hysteresis_z1->state))
+                                 ? state_.thermostat_hysteresis_z1->state : 0.5f;
+                float hys_up   = (state_.thermostat_hysteresis_up_z1 != nullptr
+                                  && !std::isnan(state_.thermostat_hysteresis_up_z1->state))
+                                 ? state_.thermostat_hysteresis_up_z1->state : 0.3f;
+                bool room_demand  = !std::isnan(room_temp) && room_temp < (room_target - hys_down);
+                bool room_sat     = !std::isnan(room_temp) && room_temp > (room_target + hys_up);
+                this->update_secondary_pump_demand(status, room_demand, room_sat);
+            }
+
+            // Buffer thermostat relay (blocked by Defrost + Lockout only, not DHW)
+            if (buffer_thermostat_active) {
+                this->run_buffer_thermostat_(status);
+            }
+            // ────────────────────────────────────────────────────────────────
 
             if (!aa_enabled) {
                 this->adaptive_loop_running_ = false;
                 return;
             }
-
-            auto &status = this->state_.ecodan_instance->get_status();
 
             if (solver_enabled) {
                 auto [solver_load_ratio, solver_heatpump_off, solver_operating_mode, current_hour] = this->resolve_solver_result_(0.0f, 0.0f);
@@ -691,7 +715,87 @@ namespace esphome
                 }
             }
 
+
             this->adaptive_loop_running_ = false;
+        }
+
+        void Optimizer::update_secondary_pump_demand(const ecodan::Status &status, bool room_demand, bool room_sat) {
+            if (state_.secondary_pump_demand_output == nullptr) return;
+            float mixing_tank = status.MixingTankTemperature;
+            constexpr float MIN_SUPPLY_TEMP = 30.0f;
+            bool buffer_can_supply = !std::isnan(mixing_tank) && mixing_tank > MIN_SUPPLY_TEMP;
+
+            if (status.DefrostActive || !buffer_can_supply) {
+                state_.secondary_pump_demand_output->publish_state(false);
+                return;
+            }
+
+            bool currently_on = state_.secondary_pump_demand_output->state;
+            if (!currently_on && room_demand) {
+                state_.secondary_pump_demand_output->publish_state(true);
+            } else if (currently_on && room_sat) {
+                state_.secondary_pump_demand_output->publish_state(false);
+            }
+        }
+
+        void Optimizer::run_buffer_thermostat_(const ecodan::Status &status) {
+            bool bt_blocked = status.DefrostActive ||
+                (state_.status_short_cycle_lockout != nullptr &&
+                 state_.status_short_cycle_lockout->state);
+            if (bt_blocked) return;
+
+            bool vt_heat = (state_.asgard_vt_z1 != nullptr) &&
+                           (state_.asgard_vt_z1->mode == esphome::climate::CLIMATE_MODE_HEAT);
+            auto ctrl_mode = vt_heat ? ThermostatControlMode::BOTH
+                                     : ThermostatControlMode::MIXING_TANK;
+
+            auto *relay = this->state_.relay_switch_z1;
+            float mixing_tank = status.MixingTankTemperature;
+            float buf_set = (state_.asgard_vt_buffer != nullptr)
+                            ? state_.asgard_vt_buffer->target_temperature : 35.0f;
+            float buf_hys = (state_.buffer_thermostat_hysteresis != nullptr
+                             && !std::isnan(state_.buffer_thermostat_hysteresis->state))
+                            ? state_.buffer_thermostat_hysteresis->state : 7.0f;
+
+            bool buf_demand = !std::isnan(mixing_tank) && mixing_tank < buf_set;
+            bool buf_sat    = !std::isnan(mixing_tank) && mixing_tank >= (buf_set + buf_hys);
+
+            float room_temp   = this->get_room_current_temp(OptimizerZone::ZONE_1);
+            float room_target = this->get_room_target_temp(OptimizerZone::ZONE_1);
+            float hys_down = (state_.thermostat_hysteresis_z1 != nullptr
+                              && !std::isnan(state_.thermostat_hysteresis_z1->state))
+                             ? state_.thermostat_hysteresis_z1->state : 0.5f;
+            float hys_up   = (state_.thermostat_hysteresis_up_z1 != nullptr
+                              && !std::isnan(state_.thermostat_hysteresis_up_z1->state))
+                             ? state_.thermostat_hysteresis_up_z1->state : 0.3f;
+            bool room_demand  = !std::isnan(room_temp) && room_temp < (room_target - hys_down);
+            bool room_sat     = !std::isnan(room_temp) && room_temp >= (room_target + hys_up);
+
+            bool do_on, do_off;
+            if (ctrl_mode == ThermostatControlMode::MIXING_TANK) {
+                do_on  = buf_demand;
+                do_off = buf_sat;
+            } else { // BOTH
+                do_on  = room_demand || buf_demand;
+                do_off = room_sat && buf_sat;
+            }
+
+            if (relay != nullptr) {
+                if (do_on && !relay->state) {
+                    relay->turn_on();
+                } else if (do_off && relay->state) {
+                    uint32_t min_run_ms = 30UL * 60UL * 1000UL;
+                    if (this->state_.minimum_compressor_on_time != nullptr &&
+                        !std::isnan(this->state_.minimum_compressor_on_time->state)) {
+                        min_run_ms = (uint32_t)(this->state_.minimum_compressor_on_time->state * 60000.0f);
+                    }
+                    bool min_run_met = (compressor_start_time_ == 0) ||
+                                      ((millis() - compressor_start_time_) >= min_run_ms);
+                    if (min_run_met) {
+                        relay->turn_off();
+                    }
+                }
+            }
         }
 
     } // namespace optimizer
