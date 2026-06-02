@@ -63,6 +63,7 @@ esp32:
 packages:
  thermostat-room-0: !include { file: asgard-thermostat.yaml, vars: { zone_identifier: "z1", gpio: "GPIO40" } }
  thermostat-room-1: ${ z2_thermostat if z2_enabled else {} }
+ buffer-thermostat: !include asgard-buffer-thermostat.yaml
  dashboard-z1: !include asgard-dashboard-z1.yaml
  dashboard-z2: ${ z2_dashboard if z2_enabled else {} }
 

@@ -22,6 +22,11 @@ extended_schema = base_schema.extend({
 extra_validators = thermostat_cli.CONFIG_SCHEMA.validators[1:]
 VIRTUAL_SCHEMA = cv.All(extended_schema, *extra_validators)
 
+buffer_schema = base_schema.extend({
+    cv.GenerateID(): cv.declare_id(thermostat_cli.ThermostatClimate),
+})
+BUFFER_THERMOSTAT_SCHEMA = cv.All(buffer_schema, *extra_validators)
+
 HARDWARE_SCHEMA = cv.Schema(
     {
         #cv.GenerateID(CONF_ECODAN_ID): cv.use_id(ECODAN), 
@@ -78,12 +83,15 @@ HARDWARE_SCHEMA = cv.Schema(
 CONFIG_SCHEMA = cv.typed_schema({
     "hardware": HARDWARE_SCHEMA,
     "virtual": VIRTUAL_SCHEMA,
+    "buffer_thermostat": BUFFER_THERMOSTAT_SCHEMA,
 }, key=CONF_VARIANT, default_type="hardware")
 
 
 async def to_code(config):
-    if config[CONF_VARIANT] == "virtual":
-        # use stock thermostat codegen as-is
+    if config[CONF_VARIANT] in ("virtual", "buffer_thermostat"):
+        # use stock thermostat codegen as-is. Single-setpoint behaviour comes from
+        # set_supports_two_points(False); the visual range is taken from the
+        # `visual:` block in YAML.
         await thermostat_cli.to_code(config)
 
         var = await cg.get_variable(config[CONF_ID])

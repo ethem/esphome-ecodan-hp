@@ -1,0 +1,64 @@
+## Buffer thermostat for mixing-tank setups.
+##
+## current_temperature = MixingTankTemperature (THW10), target = buffer setpoint.
+## The relay is driven exclusively by the firmware (Optimizer::run_auto_adaptive_loop);
+## this climate entity is display/input only, so heat_action/idle_action are no-ops.
+sensor:
+  - platform: template
+    id: buffer_thermostat_temp_sensor
+    internal: true
+    unit_of_measurement: "°C"
+    update_interval: 30s
+    lambda: |-
+      return id(ecodan_instance).get_status().MixingTankTemperature;
+
+number:
+  - platform: template
+    id: buffer_thermostat_hysteresis
+    name: "Buffer Thermostat Hysteresis"
+    icon: "mdi:arrow-expand-vertical"
+    unit_of_measurement: "K"
+    min_value: 1.0
+    max_value: 15.0
+    step: 0.5
+    restore_value: true
+    initial_value: 7.0
+    optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            id(buffer_thermostat_climate).set_heat_deadband(0);
+            id(buffer_thermostat_climate).set_heat_overrun(x);
+
+binary_sensor:
+  - platform: template
+    id: secondary_pump_demand
+    name: "Secondary Circuit Demand"
+    icon: "mdi:pump"
+
+climate:
+  - platform: ecodan
+    variant: buffer_thermostat
+    id: buffer_thermostat_climate
+    name: "Buffer Thermostat"
+    sensor: buffer_thermostat_temp_sensor
+
+    visual:
+      min_temperature: 20
+      max_temperature: 60
+      temperature_step: 0.5
+
+    heat_deadband: 0
+    heat_overrun: 7.0
+    min_heating_run_time: 0s
+    min_idle_time: 0s
+    min_heating_off_time: 0s
+
+    heat_action:
+      - logger.log:
+          level: VERBOSE
+          format: "Buffer thermostat HEAT (relay by firmware)"
+    idle_action:
+      - logger.log:
+          level: VERBOSE
+          format: "Buffer thermostat IDLE (relay by firmware)"

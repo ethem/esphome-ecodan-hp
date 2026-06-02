@@ -20,8 +20,12 @@ number:
             then:
               - component.update: asgard_vt_feedback_${zone_identifier}
 
+  # Split hysteresis: "Down" is the deadband below the setpoint that switches the
+  # heat pump ON, "Up" the one above it that switches it OFF. Splitting them lets
+  # overshoot and undershoot be tuned independently, which matters for buffer /
+  # secondary-circuit setups where residual heat keeps arriving after switch-off.
   - platform: template
-    name: "Asgard Hysteresis ${zone_identifier}"
+    name: "Asgard Hysteresis Down ${zone_identifier}"
     id: thermostat_hysteresis_${zone_identifier}
     icon: "mdi:arrow-expand-vertical"
     unit_of_measurement: "°C"
@@ -38,6 +42,19 @@ number:
             id(virtual_climate_${zone_identifier}).set_heat_overrun(x);
             id(virtual_climate_${zone_identifier}).set_cool_deadband(0);
             id(virtual_climate_${zone_identifier}).set_cool_overrun(x);
+
+  # Read by the optimizer only (secondary pump demand), so no on_value handler.
+  - platform: template
+    name: "Asgard Hysteresis Up ${zone_identifier}"
+    id: thermostat_hysteresis_up_${zone_identifier}
+    icon: "mdi:arrow-expand-vertical"
+    unit_of_measurement: "°C"
+    min_value: 0.1
+    max_value: 2.0
+    step: 0.1
+    restore_value: true
+    initial_value: 0.3
+    optimistic: true
 
 sensor:
   - platform: template

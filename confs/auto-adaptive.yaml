@@ -45,6 +45,11 @@ esphome:
             ${asgard_prefix} state.relay_switch_z1 = id(asgard_relay_z1);
             ${asgard_prefix} ${z2_cpp_prefix} state.relay_switch_z2 = id(asgard_relay_z2);
             ${asgard_prefix} state.sw_odin_override_z1 = id(sw_odin_override_z1);
+            ${asgard_prefix} state.asgard_vt_buffer = id(buffer_thermostat_climate);
+            ${asgard_prefix} state.buffer_thermostat_hysteresis = id(buffer_thermostat_hysteresis);
+            ${asgard_prefix} state.thermostat_hysteresis_z1 = id(thermostat_hysteresis_z1);
+            ${asgard_prefix} state.thermostat_hysteresis_up_z1 = id(thermostat_hysteresis_up_z1);
+            ${asgard_prefix} state.secondary_pump_demand_output = id(secondary_pump_demand);
             ${asgard_prefix} ${z2_cpp_prefix} state.sw_odin_override_z2 = id(sw_odin_override_z2);
 
             state.heating_system_type = id(heating_system_type);

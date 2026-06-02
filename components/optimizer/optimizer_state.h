@@ -124,11 +124,17 @@ namespace esphome
         esphome::select::Select *solver_kwh_meter_feedback_source;
         esphome::select::Select *solver_dhw_mode{nullptr};
 
-        // Only base climate::Climate state (current_temperature/target_temperature)
+        // Only base climate::Climate state (current_temperature/target_temperature/mode)
         // is read via these pointers (see optimizer/utility.cpp), so they don't
         // need to be typed as thermostat::ThermostatClimate specifically.
         esphome::climate::Climate *asgard_vt_z1;
         esphome::climate::Climate *asgard_vt_z2;
+        esphome::climate::Climate *asgard_vt_buffer{nullptr};
+
+        esphome::number::Number   *buffer_thermostat_hysteresis{nullptr};
+        esphome::number::Number   *thermostat_hysteresis_z1{nullptr};
+        esphome::number::Number   *thermostat_hysteresis_up_z1{nullptr};
+        esphome::binary_sensor::BinarySensor *secondary_pump_demand_output{nullptr};
 
         uint32_t &lockout_expiration_timestamp;
     };
