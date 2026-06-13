@@ -67,6 +67,11 @@ namespace ecodan
             break;
         }
 
+        // DHW Anti-0: always include current DHW setpoint in bytes 8-9 to prevent
+        // the Ecodan from seeing DHW=0 and stopping the compressor during transitions
+        // (observed by F1p; MELCloud always re-sends zone setpoints after DHW writes)
+        cmd.set_float16(status.DhwFlowTemperatureSetPoint, 8);
+
         if (zone == Zone::ZONE_1) {
             cmd[1] = 0x80;
             cmd[6] = flag;
