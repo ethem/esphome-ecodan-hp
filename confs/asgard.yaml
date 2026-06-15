@@ -47,6 +47,13 @@ esp32:
       CONFIG_LFS_BLOCK_CYCLES: "512"           # wear levelling aggressiveness
       CONFIG_LITTLEFS_MAX_PARTITIONS: "1"
       CONFIG_ESP_TASK_WDT_TIMEOUT_S: "60"
+    advanced:
+      # The hourly ODIN solve (http_request.post /api/solve -> json::parse_json ->
+      # dashboard store) runs synchronously on the ESPHome loopTask. The default 8192-byte
+      # loopTask stack can overflow during a solve (http recv + ArduinoJson parse + array
+      # store on top of the other loop()-resident components) -> vApplicationStackOverflowHook,
+      # observed as ~hourly reboots only while the solver is active (see issue #364).
+      loop_task_stack_size: 16384
 
 <<: !include asgard-sensors.yaml
 <<: !include slave.yaml
