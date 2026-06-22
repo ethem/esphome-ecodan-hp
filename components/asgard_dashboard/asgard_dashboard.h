@@ -353,7 +353,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
                        const std::vector<float>& op_mode,
                        const LastRunStats& run_stats);
 
-  void load_odin_data(int current_day);
+  void load_odin_data(int current_day, int current_hour = 0);
 
   // Called each hour by YAML to record actual consumption / room temp.
   // hour is 0-23 (today's hour); stored at index 24+hour in the 72-slot window.
@@ -361,6 +361,8 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
                           float actual_cons_kwh, float actual_prod_kwh,
                           float dhw_cons, float dhw_prod,
                           float actual_room_temp, float standby_cons);
+
+  void sync_odin_day();
 
  protected:
   void handle_root_(AsyncWebServerRequest *request);
@@ -549,6 +551,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
     std::vector<float>* vec;  // pointer to the corresponding member vector
   };
   std::array<OdinArrayEntry, 19> odin_array_map_();
+  void ensure_odin_vectors_();
 
   static void lfs_odin_task_(void* arg);
   void lfs_persist_odin_();
@@ -564,6 +567,7 @@ class EcodanDashboard : public Component, public AsyncWebHandler {
   uint32_t          last_snapshot_time_{0};
   void update_snapshot_();
 
+  int get_current_ecodan_day();
   void align_odin_day_(int current_day);
 
   // ── ODIN solver arrays (72-slot window: yesterday / today / tomorrow) ────

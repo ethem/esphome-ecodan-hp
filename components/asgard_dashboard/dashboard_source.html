@@ -94,7 +94,7 @@ header {
   .section-title { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 3px; color: var(--text3); text-transform: uppercase; margin-bottom: 10px; padding-left: 8px; border-left: 2px solid var(--accent); }
   .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 20px; }
   .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .chart-legend { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chart-legend { display: flex; gap: 15px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; font-family: var(--mono); color: var(--text2); }
   .legend-dot { width: 16px; height: 2px; flex-shrink: 0; }
   .chart-container { position: relative; width: 100%; height: 200px; }
@@ -896,7 +896,7 @@ header {
             </button>
           </div>
         </div>
-        <div class="ctrl-row"><span class="ctrl-label">Lockout Duration (min)</span><select class="ctrl-select" id="sel-lockout-dur" onchange="sendSelect('lockout_duration', this)"><option value="0">0</option><option value="1">15</option><option value="2">30</option><option value="3">45</option><option value="4">60</option></select></div>
+        <div class="ctrl-row"><span class="ctrl-label">Lockout Duration (min)</span><select class="ctrl-select" id="sel-lockout-dur" onchange="sendSelect('lockout_duration', this)"><option value="0">0</option><option value="1">15</option><option value="2">30</option><option value="3">45</option><option value="4">60</option><option value="5">120</option><option value="6">240</option></select></div>
         <div class="ctrl-row" style="border-bottom: none; padding-bottom: 0;"><span class="ctrl-label">Minimum On-Time (min)</span><div class="stepper"><button class="step-btn" onclick="step('min-on-time', -1)">−</button><div class="step-val" id="min-on-time-val">—</div><button class="step-btn" onclick="step('min-on-time', +1)">+</button></div></div>
 
         <button class="send-btn" onclick="sendSC(this)" style="margin-bottom:0; margin-top:24px;">Apply Lockout Settings</button>
@@ -1082,7 +1082,29 @@ header {
   <div class="chart-card full-width" style="margin-top: 15px; grid-column: 1 / -1;">
     <div class="chart-header">
       <div class="section-title" style="margin:0">Room Temperatures (24h)</div>
-      <div style="display:flex; align-items:center; gap:10px;">
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <div class="chart-legend" style="margin:0;">          
+          <div class="legend-item">
+            <div class="legend-dot" style="background: repeating-linear-gradient(90deg, #63b3ed 0 6px, transparent 6px 9px);"></div>Scheduled
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: repeating-linear-gradient(90deg, #ffb020 0 5px, transparent 5px 10px);"></div>Expected
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: #ffff00; display: flex; align-items: center; justify-content: center;">
+              <div style="width: 6px; height: 6px; background: #ffff00; border-radius: 50%;"></div>
+            </div>Actual
+          </div>
+          <div class="legend-item">
+            <span style="color:#ff6b35; font-weight:bold;">12:00</span>Heating
+          </div>
+          <div class="legend-item">
+            <span style="color:#00c8ff; font-weight:bold;">12:00</span>Cooling
+          </div>
+          <div class="legend-item">
+            <span style="color:#ffb020; font-weight:bold;">12:00</span>DHW
+          </div>
+        </div>
         <button class="log-btn" id="btn-reset-zoom-odin" style="display:none; padding: 2px 8px; font-size: 9px;" onclick="resetOdinZoom()">Reset Zoom</button>
       </div>
     </div>
@@ -2091,9 +2113,9 @@ const xAxis = {
           // Use nearest on the X axis so it doesn't mix up the 15m and 1h data indexes
           interaction: { mode: 'nearest', axis: 'x', intersect: false },
           plugins: {
+              // Hide the default Chart.js legend boxes
               legend: { 
-                  display: true, position: 'top', labels: { color: '#8295b8', font: monoFont,
-                  filter: item => item.text !== 'Schedule Min (°C)' && item.text !== 'Schedule Max (°C)' }
+                  display: false 
               },
               zoom: odinZoomConfig,
               tooltip: {
@@ -2674,6 +2696,22 @@ function renderOdinLive() {
     const solar         = odinDataCache?.solar               ?? new Array(72).fill(null);
 
     const pricesKwh     = prices.map(p => p !== null ? parseFloat((p).toFixed(5)) : null);
+
+    // The forecast for "tomorrow" (index 48+) doesn't exist yet until the next solve
+    // runs, so index 48 (tomorrow 00:00) is null right after the midnight shift.
+    // forward fill if data is unknown to handle this case
+    const fillSeam = (arr) => {
+        if (arr[48] !== null) return arr; // already has real data, nothing to do
+        const tomorrowHasAnyData = arr.slice(48, 72).some(v => v !== null);
+        if (!tomorrowHasAnyData && arr[47] !== null) arr[48] = arr[47];
+        return arr;
+    };
+    fillSeam(expTemp);
+    fillSeam(schedBase);
+    fillSeam(schedMin);
+    fillSeam(schedMax);
+    fillSeam(expCons);
+    fillSeam(expProd);
 
     const actualCost = new Array(72).fill(null);
     const expConsGrid = new Array(72).fill(null);

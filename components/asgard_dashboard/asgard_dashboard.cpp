@@ -84,6 +84,12 @@ void EcodanDashboard::setup() {
   base_->init();
   base_->add_handler(this);
   this->load_odin_data(-1);
+  // If LFS is not mounted (e.g. wrong partition table), load_odin_data returns immediately
+  // without sizing the vectors or setting odin_data_ready_.
+  if (!this->odin_data_ready_) {
+    this->ensure_odin_vectors_();
+    this->odin_data_ready_ = true;
+  }
 }
 
 void EcodanDashboard::loop() {
@@ -1353,16 +1359,39 @@ void EcodanDashboard::send_minute_history_(httpd_req_t *req, uint32_t from_ts, u
     httpd_resp_send_chunk(req, nullptr, 0);
 }
 
+int EcodanDashboard::get_current_ecodan_day() {
+    if (this->ecodan_ == nullptr) return -1;
+    time_t ts = this->ecodan_->get_status().timestamp();
+    if (ts == -1) return -1;
+    struct tm t;
+    localtime_r(&ts, &t);
+    return t.tm_yday;
+}
+
 void EcodanDashboard::align_odin_day_(int current_day) {
-    // Ignore invalid days or boot state (-1)
-    if (current_day < 1 || current_day > 366 || this->odin_stored_day_ < 1) return;
+    // Only abort on invalid incoming days
+    if (current_day < 1 || current_day > 366) return;
+
+    // If the cache is empty/new, initialize the day tracker and exit safely.
+    if (this->odin_stored_day_ < 1) {
+        ESP_LOGI(TAG, "[align_odin_day_] Initializing odin_stored_day_ to %d", current_day);
+        this->odin_stored_day_ = current_day;
+        return;
+    }
 
     if (current_day != this->odin_stored_day_) {
         int day_delta = current_day - this->odin_stored_day_;
         
+        // Handle year wrap-around cleanly
+        if (day_delta < -300) day_delta += 365;
+        if (day_delta > 300) day_delta -= 365;
+
+        // Ignore delayed YAML updates that try to pull the day backwards
+        if (day_delta < 0) return;
+
         // Check for normal +1 day progression (or year wrap-around)
-        if (day_delta == 1 || day_delta == -364 || day_delta == -365) {
-            ESP_LOGI(TAG, "ODIN day transition (%d -> %d): shifting 72h window", this->odin_stored_day_, current_day);
+        if (day_delta > 0 && day_delta < 3) {
+            ESP_LOGI(TAG, "[align_odin_day_] ODIN day transition (%d -> %d): shifting 72h window", this->odin_stored_day_, current_day);
             auto shift_arr = [](std::vector<float>& v, float fill_val) {
                 if (v.size() != 72) return;
                 // Shift today and tomorrow -> yesterday and today
@@ -1371,26 +1400,29 @@ void EcodanDashboard::align_odin_day_(int current_day) {
                 for (int i = 48; i < 72; i++) v[i] = fill_val;
             };
             
-            shift_arr(this->odin_expected_end_temp_, NAN);
-            shift_arr(this->odin_energy_, NAN);
-            shift_arr(this->odin_production_, NAN);
-            shift_arr(this->odin_expected_temp_, NAN);
-            shift_arr(this->odin_cost_, NAN);
-            shift_arr(this->odin_battery_discharge_, 0.0f);
-            shift_arr(this->odin_sched_base_, 0.0f);
-            shift_arr(this->odin_sched_min_, 0.0f);
-            shift_arr(this->odin_sched_max_, 0.0f);
-            shift_arr(this->odin_weather_, 0.0f);
-            shift_arr(this->odin_solar_, 0.0f);
-            shift_arr(this->odin_prices_, 0.0f);
-            shift_arr(this->odin_operation_mode_, 0.0f);
-            
-            shift_arr(this->odin_actual_dhw_cons_, NAN);
-            shift_arr(this->odin_actual_dhw_prod_, NAN);
-            shift_arr(this->odin_actual_cons_, NAN);
-            shift_arr(this->odin_actual_prod_, NAN);
-            shift_arr(this->odin_actual_room_, NAN);
-            shift_arr(this->odin_actual_standby_cons_, NAN);
+            for (int d = 0; d < day_delta; d++) {
+                // All fields use NAN (-> JSON null) to mean "no forecast/data yet",
+                shift_arr(this->odin_expected_end_temp_, NAN);
+                shift_arr(this->odin_energy_, NAN);
+                shift_arr(this->odin_production_, NAN);
+                shift_arr(this->odin_expected_temp_, NAN);
+                shift_arr(this->odin_cost_, NAN);
+                shift_arr(this->odin_battery_discharge_, NAN);
+                shift_arr(this->odin_sched_base_, NAN);
+                shift_arr(this->odin_sched_min_, NAN);
+                shift_arr(this->odin_sched_max_, NAN);
+                shift_arr(this->odin_weather_, NAN);
+                shift_arr(this->odin_solar_, NAN);
+                shift_arr(this->odin_prices_, NAN);
+                shift_arr(this->odin_operation_mode_, NAN);
+                
+                shift_arr(this->odin_actual_dhw_cons_, NAN);
+                shift_arr(this->odin_actual_dhw_prod_, NAN);
+                shift_arr(this->odin_actual_cons_, NAN);
+                shift_arr(this->odin_actual_prod_, NAN);
+                shift_arr(this->odin_actual_room_, NAN);
+                shift_arr(this->odin_actual_standby_cons_, NAN);
+            }
         } else {
             // Massive jump (e.g. device was off for days). Clear stale actuals.
             ESP_LOGI(TAG, "ODIN day jump (%d -> %d): clearing old actuals", this->odin_stored_day_, current_day);
@@ -1407,8 +1439,27 @@ void EcodanDashboard::align_odin_day_(int current_day) {
     }
 }
 
+void EcodanDashboard::sync_odin_day() {
+    if (snapshot_mutex_ == NULL || xSemaphoreTake(snapshot_mutex_, pdMS_TO_TICKS(100)) != pdTRUE) return;
+
+    if (!this->odin_data_ready_) {
+        xSemaphoreGive(snapshot_mutex_);
+        return;
+    }
+
+    align_odin_day_(this->get_current_ecodan_day());
+
+    xSemaphoreGive(snapshot_mutex_);
+}
+
 void EcodanDashboard::update_actual_data(int hour, int day, float actual_cons_kwh, float actual_prod_kwh, float dhw_cons, float dhw_prod, float actual_room_temp, float standby_cons) {
     if (snapshot_mutex_ == NULL || xSemaphoreTake(snapshot_mutex_, pdMS_TO_TICKS(100)) != pdTRUE) return;
+
+    if (!this->odin_data_ready_) {
+        xSemaphoreGive(snapshot_mutex_);
+        return;
+    }
+    this->ensure_odin_vectors_();
 
     if (!std::isnan(actual_cons_kwh)) {
         if (std::isnan(dhw_cons)) dhw_cons = 0.0f;
@@ -1418,10 +1469,28 @@ void EcodanDashboard::update_actual_data(int hour, int day, float actual_cons_kw
         if (std::isnan(dhw_prod)) dhw_prod = 0.0f;
     }
     
-    // 1. Ensure the 72h window is properly aligned to today BEFORE we update arrays
+    // 1. Ensure the 72h window is properly aligned to the day this actual data
+    // belongs to BEFORE we update arrays.
     align_odin_day_(day);
 
-    int target_idx = 24 + hour; 
+    // 2. Resolve which 24h block this hour belongs to. Day-rollover timing means
+    // this call's `day` may already be yesterday relative to odin_stored_day_
+    int day_delta = day - this->odin_stored_day_;
+    if (day_delta < -300) day_delta += 365; // year wrap
+    if (day_delta > 300)  day_delta -= 365;
+
+    int day_offset;
+    if (day_delta == 0)  day_offset = 24;       // today
+    else if (day_delta == -1) day_offset = 0;   // yesterday
+    else if (day_delta == 1)  day_offset = 48;  // tomorrow (shouldn't normally happen, but handle it)
+    else {
+        ESP_LOGW(TAG, "update_actual_data: day %d is too far from odin_stored_day_ %d (delta=%d), dropping actual for hour %d",
+                 day, this->odin_stored_day_, day_delta, hour);
+        xSemaphoreGive(snapshot_mutex_);
+        return;
+    }
+
+    int target_idx = day_offset + hour;
     float hour_cost = NAN, hour_solar = NAN;
     float exp_cons = NAN, exp_prod = NAN, exp_room = NAN, price = NAN;
     float weather = NAN, batt_dis = NAN, op_mode = NAN;
@@ -1439,10 +1508,10 @@ void EcodanDashboard::update_actual_data(int hour, int day, float actual_cons_kw
             float real_mode = 0.0f; // Default OFF (0) / Standby
             if (!std::isnan(dhw_cons) && dhw_cons > 0.03f) {
                 real_mode = 1.0f; // DHW / Legionella
-            } 
+            }
             else if (!std::isnan(actual_cons_kwh) && actual_cons_kwh > 0.05f) {
                 float inst_mode = (operation_mode_ && operation_mode_->has_state()) ? operation_mode_->state : NAN;
-                
+
                 // Modes: 1=DHW, 2=Heat, 3=Cool, 6=Legionella
                 if (inst_mode == 6.0f || inst_mode == 1.0f) {
                     real_mode = 1.0f; // Legionella / DHW fallback
@@ -1530,9 +1599,11 @@ void EcodanDashboard::update_actual_data(int hour, int day, float actual_cons_kw
     memset(hr.reserved, 0, sizeof(hr.reserved));
 
     xSemaphoreGive(snapshot_mutex_);
-    
+
     record_hourly_data(hr);
-    this->odin_lfs_dirty_ = true; 
+    // odin_lfs_dirty_ intentionally NOT set here: actual-data slots are small deltas
+    // that will be captured in the next regular flush triggered by store_odin_data.
+    // Setting it here caused a spurious second LFS write ~5min after every solver run.
 }
 
 void EcodanDashboard::store_odin_data(int current_hour, int current_day,
@@ -1558,30 +1629,7 @@ void EcodanDashboard::store_odin_data(int current_hour, int current_day,
         return;
     }
 
-    auto ensure_72 = [](std::vector<float>& v, float fill_val) {
-        if (v.size() != 72) v.assign(72, fill_val);
-    };
-
-    ensure_72(this->odin_expected_end_temp_, NAN);
-    ensure_72(this->odin_energy_, NAN);
-    ensure_72(this->odin_production_, NAN);
-    ensure_72(this->odin_expected_temp_, NAN);
-    ensure_72(this->odin_cost_, NAN);
-    ensure_72(this->odin_actual_dhw_cons_, NAN);
-    ensure_72(this->odin_actual_dhw_prod_, NAN);
-    ensure_72(this->odin_actual_cons_, NAN);
-    ensure_72(this->odin_actual_prod_, NAN);
-    ensure_72(this->odin_actual_room_, NAN);
-    ensure_72(this->odin_actual_standby_cons_, NAN);
-
-    ensure_72(this->odin_battery_discharge_, 0.0f);
-    ensure_72(this->odin_sched_base_, 0.0f);
-    ensure_72(this->odin_sched_min_, 0.0f);
-    ensure_72(this->odin_sched_max_, 0.0f);
-    ensure_72(this->odin_weather_, 0.0f);
-    ensure_72(this->odin_solar_, 0.0f);
-    ensure_72(this->odin_prices_, 0.0f);
-    ensure_72(this->odin_operation_mode_, 0.0f);
+    this->ensure_odin_vectors_();
 
     if (!this->odin_data_ready_) {
         this->odin_data_ready_ = true;
@@ -1620,7 +1668,7 @@ void EcodanDashboard::store_odin_data(int current_hour, int current_day,
     this->last_run_stats_ = run_stats;
 
     xSemaphoreGive(this->snapshot_mutex_);
-    ESP_LOGI(TAG, "ODIN arrays stored (hour=%d, day=%d)", current_hour, current_day);
+    ESP_LOGI(TAG, "ODIN arrays stored (hour=%d, day=%d, odin_stored_day=%d)", current_hour, current_day, this->odin_stored_day_);
     this->odin_lfs_dirty_ = true;
 }
 
