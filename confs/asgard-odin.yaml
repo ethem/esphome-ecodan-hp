@@ -20,7 +20,11 @@ script:
                 return false;
               }
 
-              // 3. Dynamic timer (5 min if online, 1 min if offline)
+              // 3. Skip if no valid IP configured (avoid mDNS .local resolution)
+              std::string target = id(txt_solver_ip).state;
+              if (target == "" || target == "0.0.0.0") return false;
+
+              // 4. Dynamic timer (5 min if online, 1 min if offline)
               static uint32_t last_ping_time = 0;
               uint32_t now = millis();
               if (id(bin_solver_connected).state && last_ping_time != 0 && (now - last_ping_time < 300000)) {
@@ -32,9 +36,7 @@ script:
           then:
             - http_request.get:
                 url: !lambda |-
-                  std::string target = id(txt_solver_ip).state;
-                  if (target == "" || target == "0.0.0.0") target = "odin.local";
-                  return "http://" + target + "/api/version";
+                  return "http://" + id(txt_solver_ip).state + "/api/version";
                 request_headers:
                   Connection: close
                 on_response:
@@ -207,11 +209,11 @@ script:
 
                               for (int i = 0; i < 48; i++) {
                                 exp_end_t[i] = j_eet[i].isNull() ? NAN : j_eet[i].as<float>();
-                                nrg[i]      = j_e[i].isNull() ? 0.0f : j_e[i].as<float>();
-                                prod[i]     = (!has_p || j_p[i].isNull()) ? 0.0f : j_p[i].as<float>();
+                                nrg[i]      = j_e[i].isNull() ? NAN : j_e[i].as<float>();
+                                prod[i]     = (!has_p || j_p[i].isNull()) ? NAN : j_p[i].as<float>();
                                 exp_t[i]    = j_t[i].isNull() ? NAN : j_t[i].as<float>();
-                                cost[i]     = j_c[i].isNull() ? 0.0f : j_c[i].as<float>();
-                                batt[i]     = (!has_b || j_b[i].isNull()) ? 0.0f : j_b[i].as<float>();
+                                cost[i]     = j_c[i].isNull() ? NAN : j_c[i].as<float>();
+                                batt[i]     = (!has_b || j_b[i].isNull()) ? NAN : j_b[i].as<float>();
                                 sb[i]       = (!has_sb || j_sb[i].isNull()) ? NAN : j_sb[i].as<float>();
                                 smn[i]      = (!has_smn || j_smn[i].isNull()) ? NAN : j_smn[i].as<float>();
                                 smx[i]      = (!has_smx || j_smx[i].isNull()) ? NAN : j_smx[i].as<float>();
@@ -272,8 +274,9 @@ interval:
           // Ensure we load NVS data once, and only when the Ecodan time is valid
           static bool nvs_loaded = false;
           int cur_day = id(optimizer_ptr)->get_current_ecodan_day();
+          int cur_hr  = id(optimizer_ptr)->get_current_ecodan_hour();
           if (!nvs_loaded && cur_day != -1) {
-              id(asgard_dashboard_id)->load_odin_data(cur_day);
+              id(asgard_dashboard_id)->load_odin_data(cur_day, cur_hr);
               nvs_loaded = true;
           }
 
@@ -286,6 +289,16 @@ interval:
                   id(fetch_odin_optimization)->execute();
                   initial_fetch_done = true;
               }
+          }
+
+          // DAY ROLLOVER: shift the 72h dashboard window right away, no solve needed
+          static int last_seen_day = -1;
+          if (initial_fetch_done && cur_day != -1) {
+              if (last_seen_day != -1 && cur_day != last_seen_day) {
+                  ESP_LOGI("asgard_dashboard", "Day rollover (%d -> %d): syncing 72h window.", last_seen_day, cur_day);
+                  id(asgard_dashboard_id)->sync_odin_day();
+              }
+              last_seen_day = cur_day;
           }
 
           if (id(optimizer_ptr)->check_and_clear_odin_fetch_request()) {
