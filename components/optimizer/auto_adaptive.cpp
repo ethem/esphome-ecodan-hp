@@ -261,16 +261,17 @@ namespace esphome
                 ESP_LOGD(OPTIMIZER_TAG, "Z%d HEATING: flow=%.2f°C, return=%.2f°C (boost %.1f)", (zone_i + 1), calculated_flow, actual_return_temp, pcp_adj);
             }
 
+            bool cooling_mode = is_cooling_mode(status, (zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2);
             // Clamp + step-down (order depends on post-DHW window)
             if (this->is_post_dhw_window(status)) {
                 calculated_flow = this->clamp_flow_temp(calculated_flow, zone_min, zone_max);
                 calculated_flow = this->enforce_step_limit(status,
                     this->get_feed_temp((zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2),
-                    calculated_flow);
+                    calculated_flow, cooling_mode);
             } else {
                 calculated_flow = this->enforce_step_limit(status,
                     this->get_feed_temp((zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2),
-                    calculated_flow);
+                    calculated_flow, cooling_mode);
                 calculated_flow = this->clamp_flow_temp(calculated_flow, zone_min, zone_max);
             }
 
@@ -321,11 +322,23 @@ namespace esphome
 
             calculated_flow = this->enforce_step_limit(status,
                     this->get_feed_temp((zone_i == 0) ? OptimizerZone::ZONE_1 : OptimizerZone::ZONE_2),
-                    calculated_flow);
-            calculated_flow = this->clamp_flow_temp(calculated_flow,
-                                                    min_cool_target,
-                                                    this->state_.cooling_smart_start_temp->state);
-            
+                    calculated_flow, true);
+
+            // smart_start caps the flow on startup (water still warm) to avoid a slam-start.
+            bool cooling_active = this->is_cooling_active(status);
+            if (!cooling_active) {
+                float smart_start = this->state_.cooling_smart_start_temp->state;
+                if (min_cool_target > smart_start) {
+                    ESP_LOGW(OPTIMIZER_TAG,
+                        "Z%d COOLING: min_cool_target (%.1f) > smart_start (%.1f) — clamping to min_cool_target.",
+                        (zone_i + 1), min_cool_target, smart_start);
+                    smart_start = min_cool_target;
+                }
+                calculated_flow = this->clamp_flow_temp(calculated_flow, min_cool_target, smart_start);
+            } else {
+                calculated_flow = std::max(calculated_flow, min_cool_target);
+            }
+
             return calculated_flow;
         }
 
@@ -399,7 +412,7 @@ namespace esphome
             if (solver_enabled) {
                 auto [solver_load_ratio, solver_heatpump_off, solver_operating_mode, current_hour] = this->resolve_solver_result_(room_target_temp, room_temp);
                 
-                if (solver_operating_mode == OptimizerOperationMode::DHW_ON) {
+                if (solver_operating_mode == OptimizerOperationMode::DHW_ON || solver_operating_mode == OptimizerOperationMode::LEGIONELLA_PREVENTION) {
                     return; 
                 }
 
