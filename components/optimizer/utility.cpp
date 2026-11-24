@@ -15,6 +15,69 @@ namespace esphome
                                     && current_timestamp < this->dhw_post_run_expiration_);
         }
 
+        bool Optimizer::is_post_defrost_window(const ecodan::Status &status) {
+            time_t current_timestamp = status.timestamp();
+            return (current_timestamp > 0
+                                    && this->post_defrost_expiration_ > 0
+                                    && current_timestamp < this->post_defrost_expiration_);
+        }
+
+        // Right after defrost the feed is still in its dip, so the step limit lets a low external
+        // command through; ~40 s later the feed is back and the FTC goes thermo-off. Hold a floor.
+        void Optimizer::arm_post_defrost_floor_(const ecodan::Status &status) {
+            this->clear_post_defrost_floor_();
+
+            time_t current_timestamp = status.timestamp();
+            if (current_timestamp <= 0)
+                return;
+
+            const uint32_t post_defrost_hold_s = 10 * 60UL;
+            bool armed = false;
+
+            for (auto zone : {OptimizerZone::ZONE_1, OptimizerZone::ZONE_2}) {
+                if (zone == OptimizerZone::ZONE_2 && !status.has_2zones())
+                    continue;
+
+                const auto ez = (zone == OptimizerZone::ZONE_2) ? esphome::ecodan::Zone::ZONE_2 : esphome::ecodan::Zone::ZONE_1;
+                float start_feed = (zone == OptimizerZone::ZONE_2) ? this->defrost_start_feed_z2_ : this->defrost_start_feed_z1_;
+                if (isnan(start_feed) || this->is_cooling_mode(status, zone) || !status.is_heating(ez))
+                    continue;
+
+                auto limits = this->get_flow_limits(zone);
+                float floor_flow = this->round_nearest(std::min(start_feed - MAX_FEED_STEP_ADJUSTMENT, limits.max));
+                ((zone == OptimizerZone::ZONE_2) ? this->post_defrost_floor_z2_ : this->post_defrost_floor_z1_) = floor_flow;
+                armed = true;
+
+                float setpoint = this->get_flow_setpoint(zone);
+                ESP_LOGI(OPTIMIZER_TAG, "Z%d Post-defrost: flow floor %.1f°C for 10 min (feed before defrost %.1f°C, setpoint %.1f°C)",
+                    static_cast<uint8_t>(zone), floor_flow, start_feed, setpoint);
+                if (!isnan(setpoint) && floor_flow > setpoint)
+                    this->set_flow_temp(floor_flow, zone);
+            }
+
+            if (armed)
+                this->post_defrost_expiration_ = (uint32_t)(current_timestamp + post_defrost_hold_s);
+        }
+
+        void Optimizer::clear_post_defrost_floor_() {
+            this->post_defrost_expiration_ = 0;
+            this->post_defrost_floor_z1_ = NAN;
+            this->post_defrost_floor_z2_ = NAN;
+        }
+
+        float Optimizer::apply_post_defrost_floor_(const ecodan::Status &status, OptimizerZone zone, float flow) {
+            if (isnan(flow) || !this->is_post_defrost_window(status))
+                return flow;
+
+            float floor_flow = (zone == OptimizerZone::ZONE_2) ? this->post_defrost_floor_z2_ : this->post_defrost_floor_z1_;
+            if (isnan(floor_flow) || flow >= floor_flow)
+                return flow;
+
+            ESP_LOGD(OPTIMIZER_TAG, "Z%d Post-defrost: holding flow %.1f°C (requested %.1f°C)",
+                static_cast<uint8_t>(zone), floor_flow, flow);
+            return floor_flow;
+        }
+
         bool Optimizer::is_system_hands_off(const ecodan::Status &status)
         {
             if (status.DefrostActive) return true;
@@ -376,6 +439,8 @@ namespace esphome
                 // only skip clamp during post dhw window
                 if (!this->is_post_dhw_window(status))
                     calculated = this->clamp_flow_temp(calculated, limits.min, limits.max);
+
+                calculated = this->apply_post_defrost_floor_(status, zone, calculated);
             }
 
             return calculated;

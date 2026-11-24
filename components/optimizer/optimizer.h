@@ -22,6 +22,14 @@ namespace esphome
       float dhw_old_z1_setpoint_ = NAN;
       float dhw_old_z2_setpoint_ = NAN;
 
+      // Post-defrost hold: feed reference captured when a heating defrost starts,
+      // held as a setpoint floor for a short window after it ends.
+      float    defrost_start_feed_z1_     = NAN;
+      float    defrost_start_feed_z2_     = NAN;
+      uint32_t post_defrost_expiration_   = 0;
+      float    post_defrost_floor_z1_     = NAN;
+      float    post_defrost_floor_z2_     = NAN;
+
       float predictive_boost_base_z1_setpoint_ = NAN;
       float predictive_boost_base_z2_setpoint_ = NAN;
 
@@ -131,6 +139,10 @@ namespace esphome
       bool  is_system_hands_off(const ecodan::Status &status);
       bool  is_dhw_active(const ecodan::Status &status);
       bool  is_post_dhw_window(const ecodan::Status &status);
+      bool  is_post_defrost_window(const ecodan::Status &status);
+      void  arm_post_defrost_floor_(const ecodan::Status &status);
+      void  clear_post_defrost_floor_();
+      float apply_post_defrost_floor_(const ecodan::Status &status, OptimizerZone zone, float flow);
       bool  is_compressor_active(const ecodan::Status &status);
       float clamp_flow_temp(float flow, float min_temp, float max_temp);
       float enforce_step_limit(const ecodan::Status &status, float actual_flow, float calculated_flow, bool is_cooling_mode);

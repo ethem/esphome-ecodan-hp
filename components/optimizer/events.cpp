@@ -223,6 +223,9 @@ namespace esphome
         {
             auto &status = this->state_.ecodan_instance->get_status();
 
+            if (!status.DefrostActive)
+                this->clear_post_defrost_floor_();
+
             // restore saved setpoint if it was set, only for non - AA and predictive cycle prevention on
             const bool stand_alone_predictive = !this->aa_enabled() && this->predictive_cycle_enabled();
             const bool boosted_z1 = !isnan(this->predictive_boost_base_z1_setpoint_);
@@ -293,6 +296,7 @@ namespace esphome
                 this->handle_legionella_transition_(entering_legionella);
 
             if (entering_dhw) {
+                this->clear_post_defrost_floor_();
                 const bool z1_restore = status.is_auto_adaptive_heating(esphome::ecodan::Zone::ZONE_1);
                 const bool z2_restore = status.has_2zones() &&
                                         status.is_auto_adaptive_heating(esphome::ecodan::Zone::ZONE_2);
@@ -394,6 +398,13 @@ namespace esphome
                     state_before_defrost.locked_return_temp_z2_ = status.z2_return_temperature();
 
                 this->state_before_defrost_ = state_before_defrost;
+
+                // Feed the FTC compares against, captured before the defrost pulls it down.
+                // Only heating runs: a defrost during DHW ends in the DHW handover instead.
+                this->clear_post_defrost_floor_();
+                const bool heating_run = status.is_heating_active() && this->is_compressor_active(status);
+                this->defrost_start_feed_z1_ = heating_run ? this->step_limit_feed(OptimizerZone::ZONE_1) : NAN;
+                this->defrost_start_feed_z2_ = (heating_run && status.has_2zones()) ? this->step_limit_feed(OptimizerZone::ZONE_2) : NAN;
                 ESP_LOGD(OPTIMIZER_TAG, "Defrost started. Locking states: outside temp: %.1f, hp return: %.1f, z1 return: %.1f, z2 return: %.1f for adaptive calculations.", 
                     state_before_defrost.locked_outside_temp_, state_before_defrost.locked_return_temp_, state_before_defrost.locked_return_temp_z1_, state_before_defrost.locked_return_temp_z2_);
                 
@@ -402,6 +413,9 @@ namespace esphome
             else if (x_previous && !x)
             {
                 this->last_defrost_time_ = millis();
+                this->arm_post_defrost_floor_(this->state_.ecodan_instance->get_status());
+                this->defrost_start_feed_z1_ = NAN;
+                this->defrost_start_feed_z2_ = NAN;
                 ESP_LOGD(OPTIMIZER_TAG, "Defrost stop: triggering auto-adaptive loop (Also updating last_defrost timestamp).");
                 this->run_auto_adaptive_loop();
             }
