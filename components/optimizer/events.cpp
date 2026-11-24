@@ -116,10 +116,15 @@ namespace esphome
                     if (isnan(step_feed) || fabs(step_feed - current_flow_setpoint) < 1.0f)
                         return;   // no stop risk: leave the setpoint alone
 
-                    float adjusted_target = step_feed - 0.5f;
+                    // Following the feed down only brings the setpoint back from the DHW level.
+                    // Not below the heating minimum: after a cold buffer or a defrost dip the
+                    // feed recovers and the FTC stops on a setpoint dragged down with it.
+                    float adjusted_target = std::max(step_feed - 0.5f, this->get_flow_limits(zone).min);
+                    if (fabs(adjusted_target - current_flow_setpoint) < 0.1f)
+                        return;
 
-                    ESP_LOGW(OPTIMIZER_TAG, "Heating/DHW flow adjust: %.2f°C to prevent compressor stop! (setpoint: %.2f°C is %.2f°C below the step-limit feed reference)",
-                            adjusted_target, current_flow_setpoint, (step_feed - current_flow_setpoint));
+                    ESP_LOGW(OPTIMIZER_TAG, "Heating/DHW flow adjust: %.2f°C to prevent compressor stop! (setpoint: %.2f°C, step-limit feed reference: %.2f°C)",
+                            adjusted_target, current_flow_setpoint, step_feed);
 
                     adjusted_flow = adjusted_target;
                 }
