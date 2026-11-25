@@ -30,6 +30,12 @@ namespace esphome
         void Optimizer::arm_post_defrost_floor_(const ecodan::Status &status) {
             this->clear_post_defrost_floor_();
 
+            // Only with THW10: the step limit then follows the primary feed, which the buffer
+            // brings back within ~40 s. Without it the return stays low after a defrost and the
+            // setpoint has to be free to dip.
+            if (!status.should_guard_primary_feed_temp())
+                return;
+
             time_t current_timestamp = status.timestamp();
             if (current_timestamp <= 0)
                 return;
