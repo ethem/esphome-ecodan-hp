@@ -399,6 +399,10 @@ namespace esphome
 
                 this->state_before_defrost_ = state_before_defrost;
 
+                // Don't let the post-DHW window expire mid-defrost: the setpoint would
+                // freeze at the dipped feed and the FTC stops when the feed recovers.
+                this->defrost_in_post_dhw_ = this->is_post_dhw_window(status);
+
                 // Feed the FTC compares against, captured before the defrost pulls it down.
                 // Only heating runs: a defrost during DHW ends in the DHW handover instead.
                 this->clear_post_defrost_floor_();
@@ -413,6 +417,17 @@ namespace esphome
             else if (x_previous && !x)
             {
                 this->last_defrost_time_ = millis();
+
+                if (this->defrost_in_post_dhw_) {
+                    this->defrost_in_post_dhw_ = false;
+                    time_t current_timestamp = this->state_.ecodan_instance->get_status().timestamp();
+                    const uint32_t after_defrost_s = 2 * 60UL;
+                    if (current_timestamp > 0 && this->dhw_post_run_expiration_ > 0
+                        && this->dhw_post_run_expiration_ < (uint32_t)(current_timestamp + after_defrost_s)) {
+                        this->dhw_post_run_expiration_ = (uint32_t)(current_timestamp + after_defrost_s);
+                        ESP_LOGD(OPTIMIZER_TAG, "Defrost ended in post-DHW window, extending it to: %lu", this->dhw_post_run_expiration_);
+                    }
+                }
                 this->arm_post_defrost_floor_(this->state_.ecodan_instance->get_status());
                 this->defrost_start_feed_z1_ = NAN;
                 this->defrost_start_feed_z2_ = NAN;

@@ -21,6 +21,8 @@ namespace esphome
       uint32_t dhw_post_run_expiration_ = 0;
       float dhw_old_z1_setpoint_ = NAN;
       float dhw_old_z2_setpoint_ = NAN;
+      // A defrost that starts inside the post-DHW window keeps it open until the defrost ends.
+      bool  defrost_in_post_dhw_ = false;
 
       // Post-defrost hold: feed reference captured when a heating defrost starts,
       // held as a setpoint floor for a short window after it ends.

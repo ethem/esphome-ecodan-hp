@@ -9,6 +9,9 @@ namespace esphome
         using namespace esphome::ecodan;
 
         bool Optimizer::is_post_dhw_window(const ecodan::Status &status) {
+            if (this->defrost_in_post_dhw_ && status.DefrostActive && this->dhw_post_run_expiration_ > 0)
+                return true;
+
             time_t current_timestamp = status.timestamp();
             return (current_timestamp > 0 
                                     && this->dhw_post_run_expiration_ > 0 
